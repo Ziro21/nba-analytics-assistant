@@ -1,0 +1,26 @@
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Python caches / build
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Secrets (never commit real keys)
+.env
+
+# Private working notes / phase reviews (must NOT ship)
+_working/
+
+# Source/reference materials kept on disk but NOT part of the shipped deliverable
+# (see plan §5 "what ships"). Reversible — remove these lines to include them.
+take_at_home_task.pdf
+*Development Plan*.md
+
+# OS noise
+.DS_Store

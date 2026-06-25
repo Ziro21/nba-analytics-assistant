@@ -1,0 +1,9 @@
+# Core (required) — the deterministic assistant and its tests run on these alone.
+pandas==2.2.3
+pytest==8.3.4
+
+# Optional — ONLY needed for the LLM tool-calling mode (`python main.py --mode llm "..."`).
+# The default rule-based mode and the full test suite do NOT require these.
+# Uncomment to enable LLM mode locally:
+# openai==1.57.4
+# python-dotenv==1.0.1
