@@ -1,9 +1,10 @@
-"""Phase 5A–5E tests: tool result contract, shared dataframe helpers, and the first
-four analytical tools (``team_average_points``, ``average_points_allowed``,
-``team_record``, ``top_scoring_teams``).
+"""Phase 5A–5F tests: tool result contract, shared dataframe helpers, and the first
+five analytical tools (``team_average_points``, ``average_points_allowed``,
+``team_record``, ``top_scoring_teams``, ``head_to_head``).
 
 Integration tests build the real clean frame through the real pipeline. The remaining
-tools (Phases 5F–5G) are not implemented or tested yet. No network, no LLM.
+tool (Phase 5G, ``team_efficiency_summary``) is not implemented or tested yet. No
+network, no LLM.
 """
 
 from __future__ import annotations
@@ -29,6 +30,7 @@ from src.tools import (
     date_range_for,
     filter_franchise_games,
     filter_team_games,
+    head_to_head,
     team_average_points,
     team_record,
     top_scoring_teams,
@@ -43,11 +45,9 @@ IMPLEMENTED_TOOL_NAMES = (
     "average_points_allowed",
     "team_record",
     "top_scoring_teams",
-)
-PENDING_TOOL_NAMES = (
     "head_to_head",
-    "team_efficiency_summary",
 )
+PENDING_TOOL_NAMES = ("team_efficiency_summary",)
 
 
 @pytest.fixture(scope="module")
@@ -576,6 +576,116 @@ def test_top_scoring_teams_does_not_mutate_clean_df(clean_df) -> None:
     before = clean_df.copy(deep=True)
     top_scoring_teams(clean_df, n=5)
     assert clean_df.equals(before)
+
+
+# --- Phase 5F: head_to_head -------------------------------------------------
+
+def test_head_to_head_oracle_celtics_heat(clean_df) -> None:
+    res = head_to_head(clean_df, "Boston Celtics", "Miami Heat", window=None)
+    assert res["status"] == "ok"
+    assert res["tool"] == "head_to_head"
+    r = res["result"]
+    assert r["team_a"] == "Boston Celtics"
+    assert r["team_b"] == "Miami Heat"
+    assert r["meetings"] == 39
+    assert r["team_a_wins"] == 25
+    assert r["team_b_wins"] == 14
+    assert r["record"] == "25-14"
+    assert r["average_point_differential"] == pytest.approx(
+        r["average_points_for"] - r["average_points_against"]
+    )
+    json.dumps(res)
+
+
+def test_head_to_head_reverse_direction(clean_df) -> None:
+    res = head_to_head(clean_df, "Miami Heat", "Boston Celtics", window=None)
+    r = res["result"]
+    assert r["meetings"] == 39
+    assert r["team_a_wins"] == 14
+    assert r["team_b_wins"] == 25
+    assert r["record"] == "14-25"
+
+
+def test_head_to_head_symmetry(clean_df) -> None:
+    ab = head_to_head(clean_df, "Boston Celtics", "Miami Heat")["result"]
+    ba = head_to_head(clean_df, "Miami Heat", "Boston Celtics")["result"]
+    assert ab["meetings"] == ba["meetings"]
+    assert ab["team_a_wins"] == ba["team_b_wins"]
+    assert ab["team_b_wins"] == ba["team_a_wins"]
+
+
+def test_head_to_head_metadata(clean_df) -> None:
+    res = head_to_head(clean_df, "Boston Celtics", "Miami Heat", window=None)
+    assert res["meta"]["team"] == "Boston Celtics"
+    assert res["meta"]["games_used"] == 39
+    assert res["meta"]["window_requested"] is None
+    assert isinstance(res["meta"]["date_range"], list) and len(res["meta"]["date_range"]) == 2
+    assert res["meta"]["season_id"] is None
+
+
+def test_head_to_head_positive_window(clean_df) -> None:
+    res = head_to_head(clean_df, "Boston Celtics", "Miami Heat", window=5)
+    r = res["result"]
+    assert res["status"] == "ok"
+    assert r["meetings"] == 5
+    assert r["team_a_wins"] + r["team_b_wins"] == 5
+    assert res["meta"]["games_used"] == 5
+    assert res["meta"]["window_requested"] == 5
+
+
+def test_head_to_head_over_large_window_warns(clean_df) -> None:
+    res = head_to_head(clean_df, "Boston Celtics", "Miami Heat", window=10_000)
+    assert res["status"] == "ok"
+    assert res["result"]["meetings"] == 39
+    assert res["meta"]["games_used"] == 39
+    assert len(res["warnings"]) == 1
+
+
+def test_head_to_head_window_zero_errors(clean_df) -> None:
+    res = head_to_head(clean_df, "Boston Celtics", "Miami Heat", window=0)
+    assert res["status"] == "error"
+    assert "message" in res["result"]
+
+
+def test_head_to_head_same_team_errors(clean_df) -> None:
+    res = head_to_head(clean_df, "Boston Celtics", "Boston Celtics")
+    assert res["status"] == "error"
+    assert "message" in res["result"]
+
+
+def test_head_to_head_unknown_team_no_data(clean_df) -> None:
+    res = head_to_head(clean_df, "Not A Real Team", "Miami Heat", window=5)
+    assert res["status"] == "no_data"
+    assert res["meta"]["games_used"] == 0
+    assert res["meta"]["date_range"] is None
+    assert res["warnings"]
+    json.dumps(res)
+
+
+def test_head_to_head_unknown_team_invalid_window_errors(clean_df) -> None:
+    res = head_to_head(clean_df, "Not A Real Team", "Miami Heat", window=0)
+    assert res["status"] == "error"
+
+
+def test_head_to_head_does_not_mutate_clean_df(clean_df) -> None:
+    before = clean_df.copy(deep=True)
+    head_to_head(clean_df, "Boston Celtics", "Miami Heat", window=5)
+    assert clean_df.equals(before)
+
+
+def test_head_to_head_bool_window_errors(clean_df) -> None:
+    assert head_to_head(clean_df, "Boston Celtics", "Miami Heat", window=True)["status"] == "error"
+
+
+def test_head_to_head_non_int_window_errors(clean_df) -> None:
+    assert head_to_head(clean_df, "Boston Celtics", "Miami Heat", window="5")["status"] == "error"
+
+
+def test_head_to_head_no_data_warning_mentions_both_teams(clean_df) -> None:
+    res = head_to_head(clean_df, "Not A Real Team", "Miami Heat", window=5)
+    assert res["status"] == "no_data"
+    warning = " ".join(res["warnings"])
+    assert "Not A Real Team" in warning and "Miami Heat" in warning
 
 
 def test_tools_import_needs_no_registry_parser_llm_formatter() -> None:

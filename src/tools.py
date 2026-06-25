@@ -3,8 +3,8 @@
 Provides the reusable building blocks every tool shares — franchise filtering, team
 filtering, windowing, and date-range extraction — plus the analytical tools as they are
 implemented one per Phase 5 sub-step. Implemented so far: ``team_average_points``,
-``average_points_allowed``, ``team_record``, ``top_scoring_teams``. Pending:
-``head_to_head``, ``team_efficiency_summary``.
+``average_points_allowed``, ``team_record``, ``top_scoring_teams``, ``head_to_head``.
+Pending: ``team_efficiency_summary``.
 
 Rules: pandas is the only source of truth; no helper or tool prints, mutates its input,
 or rounds. Exhibition (All-Star) rows are excluded by default for franchise-level use.
@@ -43,6 +43,16 @@ def filter_team_games(clean_df: pd.DataFrame, team: str) -> pd.DataFrame:
     return franchise.loc[franchise["team_name"] == team].copy()
 
 
+def _validate_window_value(window: int | None) -> None:
+    """Raise ``ValueError`` unless ``window`` is ``None`` or a positive, non-bool int."""
+    if window is None:
+        return
+    if isinstance(window, bool) or not isinstance(window, int):
+        raise ValueError(f"window must be a positive integer or None, got {window!r}")
+    if window <= 0:
+        raise ValueError(f"window must be a positive integer, got {window}")
+
+
 def apply_window(df: pd.DataFrame, window: int | None) -> tuple[pd.DataFrame, list[str]]:
     """Return the last ``window`` rows (in the frame's existing order) plus any warnings.
 
@@ -54,12 +64,9 @@ def apply_window(df: pd.DataFrame, window: int | None) -> tuple[pd.DataFrame, li
     Tools later catch ``ValueError`` and return ``status="error"``. The input is never
     mutated; a copy is returned.
     """
+    _validate_window_value(window)
     if window is None:
         return df.copy(), []
-    if isinstance(window, bool) or not isinstance(window, int):
-        raise ValueError(f"window must be a positive integer or None, got {window!r}")
-    if window <= 0:
-        raise ValueError(f"window must be a positive integer, got {window}")
 
     available = len(df)
     if window > available:
@@ -281,3 +288,71 @@ def top_scoring_teams(
         meta=meta,
         warnings=warnings,
     )
+
+
+def head_to_head(
+    clean_df: pd.DataFrame, team_a: str, team_b: str, window: int | None = None
+) -> ToolResult:
+    """Head-to-head record and scoring summary from ``team_a``'s perspective.
+
+    Counts each meeting ONCE, from ``team_a``'s row (``team_name == team_a`` and
+    ``opponent_team_name == team_b``), so meetings are not doubled. Returns the §4.1
+    contract with both team names in ``result`` and ``team_a`` in ``meta["team"]``.
+
+    Validation order: window first (invalid window → ``status="error"``), then
+    ``team_a == team_b`` → ``error``. A pair with no meetings (incl. an unknown team)
+    → ``no_data``. An over-long window uses all meetings with a warning. Means unrounded.
+    """
+    tool = "head_to_head"
+    try:
+        _validate_window_value(window)
+    except ValueError as exc:
+        return error_result(tool, str(exc), meta=build_meta(team=team_a))
+
+    if team_a == team_b:
+        return error_result(
+            tool,
+            f"team_a and team_b must differ; both were {team_a!r}.",
+            meta=build_meta(team=team_a),
+        )
+
+    meetings = filter_team_games(clean_df, team_a)
+    meetings = meetings[meetings["opponent_team_name"] == team_b]
+    windowed, warnings = apply_window(meetings, window)  # window already validated
+
+    if windowed.empty:
+        return no_data_result(
+            tool,
+            result={
+                "team_a": team_a, "team_b": team_b, "meetings": 0,
+                "team_a_wins": 0, "team_b_wins": 0, "record": "0-0",
+                "average_points_for": None, "average_points_against": None,
+                "average_point_differential": None,
+            },
+            meta=build_meta(team=team_a, games_used=0, window_requested=window),
+            warnings=[f"No head-to-head games found for {team_a!r} vs {team_b!r}."],
+        )
+
+    meetings_count = len(windowed)
+    team_a_wins = int(windowed["win_flag"].sum())
+    team_b_wins = meetings_count - team_a_wins
+    avg_points_for = float(windowed["points_for"].mean())
+    avg_points_against = float(windowed["points_against"].mean())
+    result = {
+        "team_a": team_a,
+        "team_b": team_b,
+        "meetings": meetings_count,
+        "team_a_wins": team_a_wins,
+        "team_b_wins": team_b_wins,
+        "record": f"{team_a_wins}-{team_b_wins}",
+        "average_points_for": avg_points_for,
+        "average_points_against": avg_points_against,
+        "average_point_differential": avg_points_for - avg_points_against,
+    }
+    meta = build_meta(
+        team=team_a,
+        games_used=meetings_count,
+        date_range=date_range_for(windowed),
+        window_requested=window,
+    )
+    return ok_result(tool, result, meta=meta, warnings=warnings)
