@@ -1,9 +1,9 @@
-"""Phase 5A–5D tests: tool result contract, shared dataframe helpers, and the first
-three analytical tools (``team_average_points``, ``average_points_allowed``,
-``team_record``).
+"""Phase 5A–5E tests: tool result contract, shared dataframe helpers, and the first
+four analytical tools (``team_average_points``, ``average_points_allowed``,
+``team_record``, ``top_scoring_teams``).
 
 Integration tests build the real clean frame through the real pipeline. The remaining
-tools (Phases 5E–5G) are not implemented or tested yet. No network, no LLM.
+tools (Phases 5F–5G) are not implemented or tested yet. No network, no LLM.
 """
 
 from __future__ import annotations
@@ -31,15 +31,20 @@ from src.tools import (
     filter_team_games,
     team_average_points,
     team_record,
+    top_scoring_teams,
 )
 
 META_KEYS = {"team", "games_used", "date_range", "window_requested", "season_id"}
 TOP_LEVEL_KEYS = {"status", "tool", "result", "meta", "warnings"}
 
 # Tools already implemented / still pending (shrinks each Phase 5 sub-step).
-IMPLEMENTED_TOOL_NAMES = ("team_average_points", "average_points_allowed", "team_record")
-PENDING_TOOL_NAMES = (
+IMPLEMENTED_TOOL_NAMES = (
+    "team_average_points",
+    "average_points_allowed",
+    "team_record",
     "top_scoring_teams",
+)
+PENDING_TOOL_NAMES = (
     "head_to_head",
     "team_efficiency_summary",
 )
@@ -52,6 +57,26 @@ def clean_df() -> pd.DataFrame:
     clean = build_clean_view(raw)
     validate_clean_view(clean, raw)
     return clean
+
+
+def make_tie_frame() -> pd.DataFrame:
+    """Two franchises with identical mean points_for, to exercise the tie-break rule.
+
+    Alpha Team: 100, 110 -> mean 105.  Zeta Team: 105, 105 -> mean 105.
+    The alphabetically-earlier team ("Alpha Team") must rank first on the tie.
+    """
+    return pd.DataFrame(
+        {
+            "team_name": ["Zeta Team", "Zeta Team", "Alpha Team", "Alpha Team"],
+            "points_for": [105, 105, 100, 110],
+            "season_id": [26, 26, 26, 26],
+            "game_date": pd.to_datetime(
+                ["2021-01-01", "2021-01-02", "2021-01-03", "2021-01-04"]
+            ),
+            "is_exhibition": [False, False, False, False],
+            "opponent_is_exhibition": [False, False, False, False],
+        }
+    )
 
 
 def small_df() -> pd.DataFrame:
@@ -448,6 +473,109 @@ def test_team_record_no_data_warning_mentions_team(clean_df) -> None:
     res = team_record(clean_df, "Not A Real Team", window=5)
     assert res["status"] == "no_data"
     assert any("Not A Real Team" in w for w in res["warnings"])
+
+
+# --- Phase 5E: top_scoring_teams -------------------------------------------
+
+ALL_TIME_TOP5 = [
+    ("Atlanta Hawks", 116.13),
+    ("Indiana Pacers", 115.94),
+    ("Milwaukee Bucks", 115.84),
+    ("Denver Nuggets", 115.67),
+    ("Utah Jazz", 115.08),
+]
+
+
+def test_top_scoring_teams_oracle_all_time(clean_df) -> None:
+    res = top_scoring_teams(clean_df, n=5)
+    assert res["status"] == "ok"
+    assert res["tool"] == "top_scoring_teams"
+    assert res["result"]["teams_returned"] == 5
+    assert res["result"]["n_requested"] == 5
+    teams = res["result"]["teams"]
+    assert [t["team"] for t in teams] == [name for name, _ in ALL_TIME_TOP5]
+    for item, (_, expected_avg) in zip(teams, ALL_TIME_TOP5):
+        assert {"rank", "team", "average_points", "games_used"} <= set(item)
+        assert isinstance(item["average_points"], float)
+        assert round(item["average_points"], 2) == expected_avg  # rounded display only
+    assert [t["rank"] for t in teams] == [1, 2, 3, 4, 5]
+    json.dumps(res)
+
+
+def test_top_scoring_teams_metadata(clean_df) -> None:
+    res = top_scoring_teams(clean_df, n=5)
+    assert res["meta"]["team"] is None
+    assert res["meta"]["games_used"] == len(filter_franchise_games(clean_df))
+    assert isinstance(res["meta"]["date_range"], list) and len(res["meta"]["date_range"]) == 2
+    assert res["meta"]["window_requested"] is None
+    assert res["meta"]["season_id"] is None
+
+
+def test_top_scoring_teams_season_filter(clean_df) -> None:
+    season = 34
+    res = top_scoring_teams(clean_df, n=5, season_id=season)
+    assert res["status"] == "ok"
+    assert res["meta"]["season_id"] == season
+    # Independent recomputation from the clean frame (no hard-coded season ranking).
+    sub = filter_franchise_games(clean_df)
+    sub = sub[sub["season_id"] == season]
+    assert res["meta"]["games_used"] == len(sub)
+    expected = (
+        sub.groupby("team_name")["points_for"].mean().reset_index()
+        .sort_values(["points_for", "team_name"], ascending=[False, True], kind="mergesort")
+        .head(5)["team_name"].tolist()
+    )
+    assert [t["team"] for t in res["result"]["teams"]] == expected
+
+
+def test_top_scoring_teams_season_no_rows(clean_df) -> None:
+    res = top_scoring_teams(clean_df, n=5, season_id=999)
+    assert res["status"] == "no_data"
+    assert res["warnings"]
+    assert res["meta"]["season_id"] == 999
+    assert res["meta"]["games_used"] == 0
+    assert res["meta"]["date_range"] is None
+
+
+@pytest.mark.parametrize("bad_season", ["36", True])
+def test_top_scoring_teams_invalid_season_errors(clean_df, bad_season) -> None:
+    res = top_scoring_teams(clean_df, n=5, season_id=bad_season)
+    assert res["status"] == "error"
+    assert "message" in res["result"]
+
+
+@pytest.mark.parametrize("bad_n", [0, -1, True, "5"])
+def test_top_scoring_teams_invalid_n_errors(clean_df, bad_n) -> None:
+    res = top_scoring_teams(clean_df, n=bad_n)
+    assert res["status"] == "error"
+    assert "message" in res["result"]
+
+
+def test_top_scoring_teams_over_large_n(clean_df) -> None:
+    total_teams = filter_franchise_games(clean_df)["team_name"].nunique()
+    res = top_scoring_teams(clean_df, n=10_000)
+    assert res["status"] == "ok"
+    assert res["result"]["teams_returned"] == total_teams
+    assert len(res["warnings"]) == 1
+    assert "10000" in res["warnings"][0] and str(total_teams) in res["warnings"][0]
+    avgs = [t["average_points"] for t in res["result"]["teams"]]
+    assert avgs == sorted(avgs, reverse=True)
+
+
+def test_top_scoring_teams_tie_breaks_by_team_name() -> None:
+    res = top_scoring_teams(make_tie_frame(), n=2)
+    assert res["status"] == "ok"
+    teams = res["result"]["teams"]
+    # Both teams have mean 105; alphabetical order wins the tie.
+    assert teams[0]["team"] == "Alpha Team"
+    assert teams[1]["team"] == "Zeta Team"
+    assert teams[0]["average_points"] == teams[1]["average_points"] == pytest.approx(105.0)
+
+
+def test_top_scoring_teams_does_not_mutate_clean_df(clean_df) -> None:
+    before = clean_df.copy(deep=True)
+    top_scoring_teams(clean_df, n=5)
+    assert clean_df.equals(before)
 
 
 def test_tools_import_needs_no_registry_parser_llm_formatter() -> None:

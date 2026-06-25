@@ -3,7 +3,7 @@
 Provides the reusable building blocks every tool shares — franchise filtering, team
 filtering, windowing, and date-range extraction — plus the analytical tools as they are
 implemented one per Phase 5 sub-step. Implemented so far: ``team_average_points``,
-``average_points_allowed``, ``team_record``. Pending: ``top_scoring_teams``,
+``average_points_allowed``, ``team_record``, ``top_scoring_teams``. Pending:
 ``head_to_head``, ``team_efficiency_summary``.
 
 Rules: pandas is the only source of truth; no helper or tool prints, mutates its input,
@@ -200,3 +200,84 @@ def team_record(
         window_requested=window,
     )
     return ok_result(tool, result, meta=meta, warnings=warnings)
+
+
+def _require_positive_int(value: object, name: str) -> None:
+    """Raise ``ValueError`` unless ``value`` is a positive, non-bool integer."""
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ValueError(f"{name} must be a positive integer, got {value!r}")
+    if value <= 0:
+        raise ValueError(f"{name} must be a positive integer, got {value}")
+
+
+def top_scoring_teams(
+    clean_df: pd.DataFrame, n: int = 5, season_id: int | None = None
+) -> ToolResult:
+    """Rank franchises by mean ``points_for`` (exhibition rows excluded by default).
+
+    Args:
+        clean_df: The clean per-team-game view.
+        n: Number of top teams to return.
+        season_id: Optional opaque season filter (never decoded into a calendar season).
+
+    Ranking: mean ``points_for`` descending, ``team_name`` ascending as a deterministic
+    tie-break. Returns the §4.1 contract with a ranked ``teams`` list. Invalid ``n`` or a
+    non-int ``season_id`` → ``status="error"``; a valid season with no rows → ``status="no_data"``;
+    ``n`` larger than the available teams returns all with a warning. Means are unrounded.
+    """
+    tool = "top_scoring_teams"
+    try:
+        _require_positive_int(n, "n")
+        if season_id is not None and (
+            isinstance(season_id, bool) or not isinstance(season_id, int)
+        ):
+            raise ValueError(f"season_id must be an integer or None, got {season_id!r}")
+    except ValueError as exc:
+        return error_result(tool, str(exc), meta=build_meta())
+
+    games = filter_franchise_games(clean_df)
+    if season_id is not None:
+        games = games[games["season_id"] == season_id]
+
+    if games.empty:
+        return no_data_result(
+            tool,
+            result={"teams": [], "teams_returned": 0, "n_requested": n},
+            meta=build_meta(season_id=season_id, games_used=0),
+            warnings=[f"No games found for season_id {season_id!r}."],
+        )
+
+    ranked = (
+        games.groupby("team_name")["points_for"]
+        .agg(avg="mean", games="count")
+        .reset_index()
+        .sort_values(by=["avg", "team_name"], ascending=[False, True], kind="mergesort")
+        .reset_index(drop=True)
+    )
+    total_teams = len(ranked)
+    warnings: list[str] = []
+    if n > total_teams:
+        warnings.append(
+            f"Requested top {n} but only {total_teams} teams available; returning all {total_teams}."
+        )
+
+    teams = [
+        {
+            "rank": rank,
+            "team": row["team_name"],
+            "average_points": float(row["avg"]),
+            "games_used": int(row["games"]),
+        }
+        for rank, (_, row) in enumerate(ranked.head(n).iterrows(), start=1)
+    ]
+    meta = build_meta(
+        games_used=len(games),
+        date_range=date_range_for(games),
+        season_id=season_id,
+    )
+    return ok_result(
+        tool,
+        {"teams": teams, "teams_returned": len(teams), "n_requested": n},
+        meta=meta,
+        warnings=warnings,
+    )
