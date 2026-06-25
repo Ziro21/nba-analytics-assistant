@@ -48,8 +48,8 @@ SUCCESS_CALLS = (
     ("team_efficiency_summary", lambda c: team_efficiency_summary(c, "Boston Celtics", window=10)),
 )
 
+# src.tool_registry now exists (Phase 6A); these later-layer modules still must not.
 NEXT_LAYER_MODULES = (
-    "src.tool_registry",
     "src.query_parser",
     "src.llm_query_parser",
     "src.intent_validator",
