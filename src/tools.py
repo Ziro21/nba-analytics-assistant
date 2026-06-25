@@ -12,6 +12,14 @@ from __future__ import annotations
 
 import pandas as pd
 
+from src.tool_results import (
+    ToolResult,
+    build_meta,
+    error_result,
+    no_data_result,
+    ok_result,
+)
+
 
 def filter_franchise_games(clean_df: pd.DataFrame) -> pd.DataFrame:
     """Return franchise games only: exclude exhibition rows (and rows whose opponent is
@@ -67,3 +75,47 @@ def date_range_for(df: pd.DataFrame) -> list[str] | None:
         df["game_date"].min().date().isoformat(),
         df["game_date"].max().date().isoformat(),
     ]
+
+
+# --- Analytical tools (Phase 5B+) -------------------------------------------
+
+def team_average_points(
+    clean_df: pd.DataFrame, team: str, window: int | None = None
+) -> ToolResult:
+    """Average points scored (``points_for``) by a team over its most recent games.
+
+    Args:
+        clean_df: The clean per-team-game view.
+        team: Exact canonical ``team_name``.
+        window: Number of most recent games to average; ``None`` uses all games.
+
+    Status semantics: an invalid window (``<= 0``, non-int) yields ``status="error"``;
+    a team with no matching games yields ``status="no_data"`` (the tool ran but found
+    nothing — distinguishing a genuinely unknown team is the validator's job upstream).
+    An over-long window uses all available games with a warning. pandas computes the
+    mean — the value is returned unrounded.
+    """
+    tool = "team_average_points"
+    team_games = filter_team_games(clean_df, team)
+    # Validate the window first, so an invalid argument always errors (even for an
+    # unknown team) before the no-data check.
+    try:
+        windowed, warnings = apply_window(team_games, window)
+    except ValueError as exc:
+        return error_result(tool, str(exc), meta=build_meta(team=team))
+
+    if windowed.empty:
+        return no_data_result(
+            tool,
+            meta=build_meta(team=team, window_requested=window),
+            warnings=[f"No games found for team {team!r}."],
+        )
+
+    average_points = float(windowed["points_for"].mean())
+    meta = build_meta(
+        team=team,
+        games_used=len(windowed),
+        date_range=date_range_for(windowed),
+        window_requested=window,
+    )
+    return ok_result(tool, {"average_points": average_points}, meta=meta, warnings=warnings)
