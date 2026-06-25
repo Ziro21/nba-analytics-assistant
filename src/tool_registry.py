@@ -24,6 +24,14 @@ from dataclasses import dataclass
 from typing import Any
 
 from src.tool_results import ToolResult, error_result
+from src.tools import (
+    average_points_allowed,
+    head_to_head,
+    team_average_points,
+    team_efficiency_summary,
+    team_record,
+    top_scoring_teams,
+)
 
 CLEAN_DF_PARAM = "clean_df"
 REGISTRY_TOOL_NAME = "tool_registry"
@@ -210,8 +218,80 @@ class ToolRegistry:
         return result
 
 
-# Default registry — intentionally EMPTY in Phase 6A (no real tools registered yet).
-DEFAULT_REGISTRY = ToolRegistry()
+# --- Default registry: the six analytical tools (explicit registration) -----
+
+def _team_window_params() -> tuple[ToolParameter, ...]:
+    """The standard (team, optional window) parameter pair shared by team-level tools."""
+    return (
+        ToolParameter(name="team", type="str", required=True, description="Canonical team name."),
+        ToolParameter(
+            name="window", type="int|null", required=False,
+            description="Optional recent-game window. If omitted, all available games are used.",
+            default=None,
+        ),
+    )
+
+
+def build_default_registry() -> ToolRegistry:
+    """Construct a registry with the six analytical tools, registered explicitly.
+
+    Registration order is the logical project order (not alphabetical) and is the order
+    in which ``schemas()`` lists them.
+    """
+    registry = ToolRegistry()
+    registry.register(ToolSpec(
+        name="team_average_points",
+        description="Average points scored by a team over all available games or the last N games.",
+        parameters=_team_window_params(),
+        function=team_average_points,
+    ))
+    registry.register(ToolSpec(
+        name="average_points_allowed",
+        description="Average points allowed by a team over all available games or the last N games.",
+        parameters=_team_window_params(),
+        function=average_points_allowed,
+    ))
+    registry.register(ToolSpec(
+        name="team_record",
+        description="Win-loss record and win percentage for a team over all available games or the last N games.",
+        parameters=_team_window_params(),
+        function=team_record,
+    ))
+    registry.register(ToolSpec(
+        name="top_scoring_teams",
+        description="Rank teams by average points scored, optionally within a dataset season_id.",
+        parameters=(
+            ToolParameter(name="n", type="int", required=False,
+                          description="Number of top teams to return.", default=5),
+            ToolParameter(name="season_id", type="int|null", required=False,
+                          description="Optional opaque dataset season identifier.", default=None),
+        ),
+        function=top_scoring_teams,
+    ))
+    registry.register(ToolSpec(
+        name="head_to_head",
+        description="Head-to-head meetings, record, and scoring summary for two teams from team_a's perspective.",
+        parameters=(
+            ToolParameter(name="team_a", type="str", required=True,
+                          description="Canonical name of the first team. Results are from this team's perspective."),
+            ToolParameter(name="team_b", type="str", required=True,
+                          description="Canonical name of the opposing team."),
+            ToolParameter(name="window", type="int|null", required=False,
+                          description="Optional recent-meeting window. If omitted, all meetings are used.",
+                          default=None),
+        ),
+        function=head_to_head,
+    ))
+    registry.register(ToolSpec(
+        name="team_efficiency_summary",
+        description="Average per-game offensive rating, defensive rating, net rating, and possessions for a team.",
+        parameters=_team_window_params(),
+        function=team_efficiency_summary,
+    ))
+    return registry
+
+
+DEFAULT_REGISTRY = build_default_registry()
 
 
 # --- thin module-level convenience wrappers (delegate to DEFAULT_REGISTRY) ---
