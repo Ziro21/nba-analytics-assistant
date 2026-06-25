@@ -26,9 +26,9 @@ from src.intent_types import (
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
+# src.validation_context and src.team_resolution now exist (Phase 7B); these
+# later-layer modules still must not.
 FORBIDDEN_MODULES = (
-    "src.validation_context",
-    "src.team_resolution",
     "src.intent_validator",
     "src.query_parser",
     "src.llm_query_parser",
