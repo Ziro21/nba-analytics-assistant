@@ -8,7 +8,7 @@ consume these), and dispatches execution.
 Design boundaries (Phase 6A):
   - ``clean_df`` is an injected runtime dependency, passed keyword-only to ``execute`` and
     NEVER part of a public schema or a tool parameter.
-  - The registry does SHALLOW argument-shape validation only (known tool, args is a dict,
+  - The registry does SHALLOW argument-shape validation only (known tool, args is a mapping,
     required args present, no unexpected args, ``clean_df`` not smuggled in ``args``).
     Deep semantic validation (real team names, positive windows, season existence, …)
     belongs to the analytical tools and the later validator/parser layers.
@@ -19,7 +19,7 @@ Design boundaries (Phase 6A):
 from __future__ import annotations
 
 import json
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Any
 
@@ -160,13 +160,14 @@ class ToolRegistry:
     # --- execution ----------------------------------------------------------
 
     def execute(
-        self, name: str, args: dict[str, Any] | None = None, *, clean_df: Any
+        self, name: str, args: Mapping[str, Any] | None = None, *, clean_df: Any
     ) -> ToolResult:
         """Dispatch a registered tool with shallow argument-shape validation.
 
-        ``clean_df`` is injected keyword-only. Normal request problems return a
-        structured registry-level error; the underlying tool's result is returned
-        unchanged on success.
+        ``args`` may be any read-only mapping (e.g. the validator's MappingProxyType
+        output) or ``None``; non-mappings are rejected. ``clean_df`` is injected
+        keyword-only. Normal request problems return a structured registry-level error;
+        the underlying tool's result is returned unchanged on success.
         """
         spec = self._tools.get(name)
         if spec is None:
@@ -178,7 +179,9 @@ class ToolRegistry:
 
         if args is None:
             args = {}
-        if not isinstance(args, dict):
+        # Accept any read-only mapping (e.g. the validator's MappingProxyType output),
+        # not just a plain dict — non-mappings (list/str/…) are still rejected.
+        if not isinstance(args, Mapping):
             return self._error("Arguments must be a dictionary or None.", requested_tool=name)
         if CLEAN_DF_PARAM in args:
             return self._error(
@@ -312,5 +315,5 @@ def schemas() -> list[dict[str, Any]]:
     return DEFAULT_REGISTRY.schemas()
 
 
-def execute(name: str, args: dict[str, Any] | None = None, *, clean_df: Any) -> ToolResult:
+def execute(name: str, args: Mapping[str, Any] | None = None, *, clean_df: Any) -> ToolResult:
     return DEFAULT_REGISTRY.execute(name, args, clean_df=clean_df)
