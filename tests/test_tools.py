@@ -1,10 +1,8 @@
-"""Phase 5A–5F tests: tool result contract, shared dataframe helpers, and the first
-five analytical tools (``team_average_points``, ``average_points_allowed``,
-``team_record``, ``top_scoring_teams``, ``head_to_head``).
+"""Phase 5A–5G tests: tool result contract, shared dataframe helpers, and all six
+analytical tools (``team_average_points``, ``average_points_allowed``, ``team_record``,
+``top_scoring_teams``, ``head_to_head``, ``team_efficiency_summary``).
 
-Integration tests build the real clean frame through the real pipeline. The remaining
-tool (Phase 5G, ``team_efficiency_summary``) is not implemented or tested yet. No
-network, no LLM.
+Integration tests build the real clean frame through the real pipeline. No network, no LLM.
 """
 
 from __future__ import annotations
@@ -32,6 +30,7 @@ from src.tools import (
     filter_team_games,
     head_to_head,
     team_average_points,
+    team_efficiency_summary,
     team_record,
     top_scoring_teams,
 )
@@ -39,15 +38,16 @@ from src.tools import (
 META_KEYS = {"team", "games_used", "date_range", "window_requested", "season_id"}
 TOP_LEVEL_KEYS = {"status", "tool", "result", "meta", "warnings"}
 
-# Tools already implemented / still pending (shrinks each Phase 5 sub-step).
+# All six analytical tools are implemented after Phase 5G.
 IMPLEMENTED_TOOL_NAMES = (
     "team_average_points",
     "average_points_allowed",
     "team_record",
     "top_scoring_teams",
     "head_to_head",
+    "team_efficiency_summary",
 )
-PENDING_TOOL_NAMES = ("team_efficiency_summary",)
+PENDING_TOOL_NAMES: tuple[str, ...] = ()
 
 
 @pytest.fixture(scope="module")
@@ -75,6 +75,27 @@ def make_tie_frame() -> pd.DataFrame:
             ),
             "is_exhibition": [False, False, False, False],
             "opponent_is_exhibition": [False, False, False, False],
+        }
+    )
+
+
+def make_efficiency_frame() -> pd.DataFrame:
+    """One team, two games with DIFFERENT possessions, to distinguish a per-game mean
+    from a possession-weighted aggregate.
+
+    ortg [100, 120] -> per-game mean 110.  Possession-weighted (poss 100, 200) would be
+    (100*100 + 120*200) / (100+200) = 113.33. The tool must report the per-game mean.
+    """
+    return pd.DataFrame(
+        {
+            "team_name": ["Alpha Team", "Alpha Team"],
+            "ortg": [100.0, 120.0],
+            "drtg": [100.0, 100.0],
+            "net_rating": [0.0, 20.0],
+            "possessions": [100, 200],
+            "game_date": pd.to_datetime(["2021-01-01", "2021-01-02"]),
+            "is_exhibition": [False, False],
+            "opponent_is_exhibition": [False, False],
         }
     )
 
@@ -686,6 +707,113 @@ def test_head_to_head_no_data_warning_mentions_both_teams(clean_df) -> None:
     assert res["status"] == "no_data"
     warning = " ".join(res["warnings"])
     assert "Not A Real Team" in warning and "Miami Heat" in warning
+
+
+# --- Phase 5G: team_efficiency_summary -------------------------------------
+
+def test_team_efficiency_summary_oracle_celtics_last10(clean_df) -> None:
+    res = team_efficiency_summary(clean_df, "Boston Celtics", window=10)
+    assert res["status"] == "ok"
+    assert res["tool"] == "team_efficiency_summary"
+    r = res["result"]
+    assert r["team"] == "Boston Celtics"
+    assert r["games_used"] == 10
+    assert round(r["average_ortg"], 2) == 106.98  # rounded display only
+    assert round(r["average_drtg"], 2) == 101.93
+    assert "average_net_rating" in r
+    json.dumps(res)
+
+
+def test_team_efficiency_summary_oracle_gsw_last10(clean_df) -> None:
+    res = team_efficiency_summary(clean_df, "Golden State Warriors", window=10)
+    assert res["status"] == "ok"
+    assert res["result"]["games_used"] == 10
+    assert round(res["result"]["average_ortg"], 2) == 105.57
+    assert round(res["result"]["average_drtg"], 2) == 109.17
+    json.dumps(res)
+
+
+def test_team_efficiency_summary_metadata(clean_df) -> None:
+    res = team_efficiency_summary(clean_df, "Boston Celtics", window=10)
+    assert res["meta"]["team"] == "Boston Celtics"
+    assert res["meta"]["games_used"] == 10
+    assert res["meta"]["window_requested"] == 10
+    assert isinstance(res["meta"]["date_range"], list) and len(res["meta"]["date_range"]) == 2
+    assert res["meta"]["season_id"] is None
+
+
+def test_team_efficiency_summary_window_none_uses_all(clean_df) -> None:
+    res = team_efficiency_summary(clean_df, "Boston Celtics", window=None)
+    expected_games = len(filter_team_games(clean_df, "Boston Celtics"))
+    assert res["status"] == "ok"
+    assert res["result"]["games_used"] == expected_games
+    assert res["meta"]["window_requested"] is None
+    assert res["warnings"] == []
+
+
+def test_team_efficiency_summary_positive_window(clean_df) -> None:
+    res = team_efficiency_summary(clean_df, "Boston Celtics", window=10)
+    assert res["result"]["games_used"] == 10
+    assert res["meta"]["window_requested"] == 10
+
+
+def test_team_efficiency_summary_over_large_window_warns(clean_df) -> None:
+    expected_games = len(filter_team_games(clean_df, "Boston Celtics"))
+    res = team_efficiency_summary(clean_df, "Boston Celtics", window=10_000)
+    assert res["status"] == "ok"
+    assert res["result"]["games_used"] == expected_games
+    assert len(res["warnings"]) == 1
+
+
+def test_team_efficiency_summary_window_zero_errors(clean_df) -> None:
+    res = team_efficiency_summary(clean_df, "Boston Celtics", window=0)
+    assert res["status"] == "error"
+
+
+def test_team_efficiency_summary_unknown_team_no_data(clean_df) -> None:
+    res = team_efficiency_summary(clean_df, "Not A Real Team", window=10)
+    assert res["status"] == "no_data"
+    assert res["result"]["games_used"] == 0
+    assert res["meta"]["games_used"] == 0
+    assert res["meta"]["date_range"] is None
+    assert res["warnings"]
+    json.dumps(res)
+
+
+def test_team_efficiency_summary_unknown_team_invalid_window_errors(clean_df) -> None:
+    res = team_efficiency_summary(clean_df, "Not A Real Team", window=0)
+    assert res["status"] == "error"
+
+
+def test_team_efficiency_summary_does_not_mutate_clean_df(clean_df) -> None:
+    before = clean_df.copy(deep=True)
+    team_efficiency_summary(clean_df, "Boston Celtics", window=10)
+    assert clean_df.equals(before)
+
+
+def test_team_efficiency_summary_net_rating_consistency(clean_df) -> None:
+    res = team_efficiency_summary(clean_df, "Boston Celtics", window=10)
+    r = res["result"]
+    # net_rating column mean equals mean(ortg) - mean(drtg) up to float error.
+    assert r["average_net_rating"] == pytest.approx(r["average_ortg"] - r["average_drtg"])
+
+
+def test_team_efficiency_summary_bool_window_errors(clean_df) -> None:
+    assert team_efficiency_summary(clean_df, "Boston Celtics", window=True)["status"] == "error"
+
+
+def test_team_efficiency_summary_non_int_window_errors(clean_df) -> None:
+    assert team_efficiency_summary(clean_df, "Boston Celtics", window="5")["status"] == "error"
+
+
+def test_team_efficiency_summary_uses_per_game_means_not_weighted() -> None:
+    res = team_efficiency_summary(make_efficiency_frame(), "Alpha Team", window=None)
+    r = res["result"]
+    assert res["status"] == "ok"
+    # Per-game mean of ortg = 110.0; a possession-weighted aggregate would be 113.33.
+    assert r["average_ortg"] == pytest.approx(110.0)
+    assert r["average_ortg"] != pytest.approx((100 * 100 + 120 * 200) / 300)
+    assert r["average_possessions"] == pytest.approx(150.0)
 
 
 def test_tools_import_needs_no_registry_parser_llm_formatter() -> None:

@@ -2,9 +2,9 @@
 
 Provides the reusable building blocks every tool shares — franchise filtering, team
 filtering, windowing, and date-range extraction — plus the analytical tools as they are
-implemented one per Phase 5 sub-step. Implemented so far: ``team_average_points``,
-``average_points_allowed``, ``team_record``, ``top_scoring_teams``, ``head_to_head``.
-Pending: ``team_efficiency_summary``.
+implemented one per Phase 5 sub-step. All six are now implemented:
+``team_average_points``, ``average_points_allowed``, ``team_record``,
+``top_scoring_teams``, ``head_to_head``, ``team_efficiency_summary``.
 
 Rules: pandas is the only source of truth; no helper or tool prints, mutates its input,
 or rounds. Exhibition (All-Star) rows are excluded by default for franchise-level use.
@@ -352,6 +352,57 @@ def head_to_head(
     meta = build_meta(
         team=team_a,
         games_used=meetings_count,
+        date_range=date_range_for(windowed),
+        window_requested=window,
+    )
+    return ok_result(tool, result, meta=meta, warnings=warnings)
+
+
+def team_efficiency_summary(
+    clean_df: pd.DataFrame, team: str, window: int | None = None
+) -> ToolResult:
+    """Descriptive recent-form efficiency summary for a team.
+
+    Reports the **average per-game** offensive and defensive rating (mean of ``ortg`` /
+    ``drtg``), net rating (mean of ``net_rating``), and possessions over the selected
+    games. This is a per-game mean, NOT a possession-weighted season-level aggregate.
+    The tool does not judge whether a team is "good" or "bad" — that is the formatter's job.
+
+    Returns the §4.1 contract. Invalid window → ``status="error"`` (checked first); a team
+    with no games → ``status="no_data"``; an over-long window uses all games with a warning.
+    Values are returned unrounded. ``ortg``/``drtg``/``net_rating``/``possessions`` are core,
+    null-free columns, so the means need no NaN handling.
+    """
+    tool = "team_efficiency_summary"
+    team_games = filter_team_games(clean_df, team)
+    try:
+        windowed, warnings = apply_window(team_games, window)
+    except ValueError as exc:
+        return error_result(tool, str(exc), meta=build_meta(team=team))
+
+    if windowed.empty:
+        return no_data_result(
+            tool,
+            result={
+                "team": team, "average_ortg": None, "average_drtg": None,
+                "average_net_rating": None, "average_possessions": None, "games_used": 0,
+            },
+            meta=build_meta(team=team, games_used=0, window_requested=window),
+            warnings=[f"No games found for team {team!r}."],
+        )
+
+    games_used = len(windowed)
+    result = {
+        "team": team,
+        "average_ortg": float(windowed["ortg"].mean()),
+        "average_drtg": float(windowed["drtg"].mean()),
+        "average_net_rating": float(windowed["net_rating"].mean()),
+        "average_possessions": float(windowed["possessions"].mean()),
+        "games_used": games_used,
+    }
+    meta = build_meta(
+        team=team,
+        games_used=games_used,
         date_range=date_range_for(windowed),
         window_requested=window,
     )
