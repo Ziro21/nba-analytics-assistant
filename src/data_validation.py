@@ -8,7 +8,7 @@ pandas is the only source of truth: every expected number below was computed fro
 ``data/nba_dataset.csv`` before being encoded here — none is guessed. ``season_id``
 is treated as an opaque integer index and is never decoded into a season label.
 
-Scope note (Phase 3A): this module validates the *raw* analytical frame. It does NOT
+Scope note (Phase 3): this module validates the *raw* analytical frame. It does NOT
 derive opponent names, build a clean model, filter exhibition rows, or zero-fill nulls.
 """
 
@@ -222,15 +222,16 @@ def validate_dates(df: pd.DataFrame) -> dict[str, str]:
 
 
 def validate_season_ids(df: pd.DataFrame) -> list[int]:
-    """Confirm observed ``season_id`` values fall within the expected opaque set.
+    """Confirm the observed ``season_id`` set matches the expected opaque set exactly.
 
-    ``season_id`` is an opaque index; it is never decoded into an NBA season label.
+    Fails if any expected id is missing or any unexpected id appears. ``season_id`` is
+    an opaque index; it is never decoded into an NBA season label.
     """
     observed = sorted(int(x) for x in df["season_id"].unique())
-    unexpected = [s for s in observed if s not in EXPECTED_SEASON_IDS]
-    if unexpected:
+    expected = sorted(EXPECTED_SEASON_IDS)
+    if observed != expected:
         raise DataValidationError(
-            f"Unexpected season_id values {unexpected}; expected within {sorted(EXPECTED_SEASON_IDS)}."
+            f"season_id set mismatch: observed {observed}, expected {expected}."
         )
     return observed
 
@@ -238,14 +239,27 @@ def validate_season_ids(df: pd.DataFrame) -> list[int]:
 def validate_special_teams(df: pd.DataFrame) -> dict[str, object]:
     """Validate/report special (exhibition) teams. Does NOT filter them here.
 
-    Reports the unique team-name count and special-row count, and — if
-    ``our_fixture_id`` exists — confirms its nulls align exactly with special-team rows.
+    Enforces the expected special-team row count and that the special teams present
+    are exactly the configured set, then — if ``our_fixture_id`` exists — confirms its
+    nulls align exactly with the special-team rows. Reports the unique team-name count.
     """
     special_mask = df["team_name"].isin(SPECIAL_TEAMS)
     present_special = sorted(set(df.loc[special_mask, "team_name"]))
+    special_rows = int(special_mask.sum())
+
+    if special_rows != EXPECTED_SPECIAL_TEAM_ROWS:
+        raise DataValidationError(
+            f"Expected {EXPECTED_SPECIAL_TEAM_ROWS} special-team rows, found {special_rows}."
+        )
+    if set(present_special) != set(SPECIAL_TEAMS):
+        raise DataValidationError(
+            f"Special teams present {present_special} do not match configured "
+            f"{sorted(SPECIAL_TEAMS)}."
+        )
+
     summary: dict[str, object] = {
         "team_name_count": int(df["team_name"].nunique()),
-        "special_team_rows": int(special_mask.sum()),
+        "special_team_rows": special_rows,
         "special_teams_present": present_special,
         "fixture_null_alignment_ok": None,
     }

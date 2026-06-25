@@ -13,6 +13,7 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
+from src.config import SPECIAL_TEAMS
 from src.data_loader import load_raw_dataset
 from src.data_validation import (
     EXPECTED_COLUMN_COUNT,
@@ -81,6 +82,22 @@ def make_valid_frame() -> pd.DataFrame:
             "3FGM": [15, 12, 16, 14],
             "three_makes": [14, 12, 16, 14],      # differs on row 0
             "our_fixture_id": [5000, 5000, 5001, 5001],
+        }
+    )
+
+
+def make_special_frame() -> pd.DataFrame:
+    """A frame with exactly 8 special-team rows (all three configured names) plus two
+    normal rows, with ``our_fixture_id`` null exactly on the special rows."""
+    return pd.DataFrame(
+        {
+            "team_name": [
+                "Team Stars", "Team Stars", "Team Stars",
+                "Team Stripes", "Team Stripes", "Team Stripes",
+                "Team World", "Team World",
+                "Atlanta Hawks", "Boston Celtics",
+            ],
+            "our_fixture_id": [None] * 8 + [9001, 9002],
         }
     )
 
@@ -190,15 +207,25 @@ def test_unparseable_date_fails() -> None:
 
 # --- Season ids -------------------------------------------------------------
 
-def test_season_ids_pass_on_valid_frame() -> None:
-    assert validate_season_ids(make_valid_frame()) == [26]
+def test_season_ids_pass_with_exact_expected_set() -> None:
+    frame = pd.DataFrame({"season_id": [26, 28, 30, 32, 34, 36]})
+    assert validate_season_ids(frame) == [26, 28, 30, 32, 34, 36]
 
 
-def test_unexpected_season_id_fails() -> None:
-    broken = make_valid_frame()
-    broken.loc[0, "season_id"] = 99
+def test_season_ids_fail_when_expected_missing() -> None:
+    frame = pd.DataFrame({"season_id": [26, 28, 30, 32, 34]})  # missing 36
     with pytest.raises(DataValidationError):
-        validate_season_ids(broken)
+        validate_season_ids(frame)
+
+
+def test_season_ids_fail_when_unexpected_present() -> None:
+    frame = pd.DataFrame({"season_id": [26, 28, 30, 32, 34, 36, 99]})  # extra 99
+    with pytest.raises(DataValidationError):
+        validate_season_ids(frame)
+
+
+def test_season_ids_match_on_real_file() -> None:
+    assert validate_season_ids(load_raw_dataset()) == [26, 28, 30, 32, 34, 36]
 
 
 # --- Special teams ----------------------------------------------------------
@@ -207,12 +234,37 @@ def test_special_teams_report_on_real_file() -> None:
     summary = validate_special_teams(load_raw_dataset())
     assert summary["special_team_rows"] == EXPECTED_SPECIAL_TEAM_ROWS
     assert summary["team_name_count"] == 33
+    assert sorted(summary["special_teams_present"]) == sorted(SPECIAL_TEAMS)
     assert summary["fixture_null_alignment_ok"] is True
 
 
+def test_special_teams_pass_on_synthetic_frame() -> None:
+    summary = validate_special_teams(make_special_frame())
+    assert summary["special_team_rows"] == EXPECTED_SPECIAL_TEAM_ROWS
+    assert summary["fixture_null_alignment_ok"] is True
+
+
+def test_special_team_row_count_mismatch_fails() -> None:
+    broken = make_special_frame().drop(index=0)  # now 7 special rows
+    with pytest.raises(DataValidationError):
+        validate_special_teams(broken)
+
+
+def test_special_team_names_mismatch_fails() -> None:
+    # Eight special rows but only two of the three configured names present.
+    broken = pd.DataFrame(
+        {
+            "team_name": ["Team Stars"] * 4 + ["Team Stripes"] * 4,
+            "our_fixture_id": [None] * 8,
+        }
+    )
+    with pytest.raises(DataValidationError):
+        validate_special_teams(broken)
+
+
 def test_special_team_fixture_misalignment_fails() -> None:
-    broken = make_valid_frame()
-    broken.loc[0, "team_name"] = "Team Stars"  # special row, but fixture id not null
+    broken = make_special_frame()
+    broken.loc[0, "our_fixture_id"] = 9999  # a special row with a non-null fixture id
     with pytest.raises(DataValidationError):
         validate_special_teams(broken)
 
@@ -235,6 +287,12 @@ def test_three_point_trap_counts_disagreements() -> None:
     result = validate_three_point_trap(make_valid_frame())
     assert result["3FGA vs three_attempts"] == 1
     assert result["3FGM vs three_makes"] == 1
+
+
+def test_three_point_trap_counts_on_real_file() -> None:
+    result = validate_three_point_trap(load_raw_dataset())
+    assert result["3FGA vs three_attempts"] == 1200
+    assert result["3FGM vs three_makes"] == 1200
 
 
 # --- Shape failure & full happy path ---------------------------------------
