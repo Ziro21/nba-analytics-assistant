@@ -260,7 +260,7 @@ def test_date_range_for_empty() -> None:
 
 # --- I. scope / import sanity ----------------------------------------------
 
-def test_pending_analytical_tools_not_implemented_yet() -> None:
+def test_expected_analytical_tools_are_implemented() -> None:
     for name in IMPLEMENTED_TOOL_NAMES:
         assert hasattr(tools_module, name), f"{name} should exist"
     for name in PENDING_TOOL_NAMES:
