@@ -67,6 +67,10 @@ def build_clean_view(raw_df: pd.DataFrame) -> pd.DataFrame:
 
     Assumes the caller has run Phase 3 validation (`validate_dataset`) on ``raw_df``.
     The input frame is never mutated; a new dataframe is returned.
+
+    Note: this does not call `validate_clean_view` itself — building does not imply
+    post-transform validation. It does self-guard the opponent pairing (raising on a
+    broken game-pair structure). Run `validate_clean_view` separately for full checks.
     """
     game_date = parse_match_date(raw_df)  # explicit, fixed-format parse (Phase 3 helper)
     opponent_team_name = _derive_opponent_team_name(raw_df)

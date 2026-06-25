@@ -14,10 +14,10 @@ from src.data_loader import load_raw_dataset
 from src.data_model import (
     CLEAN_COLUMNS,
     SORT_KEYS,
-    DataValidationError,
     build_clean_view,
     validate_clean_view,
 )
+from src.data_validation import DataValidationError
 
 
 def make_raw_frame() -> pd.DataFrame:
