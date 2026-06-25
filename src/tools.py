@@ -1,11 +1,13 @@
-"""Shared dataframe helpers for the analytical tools.
+"""Shared dataframe helpers and the analytical tools.
 
-Phase 5A provides ONLY the reusable building blocks every tool will share — franchise
-filtering, team filtering, windowing, and date-range extraction. The six analytical
-tools themselves are implemented later (Phases 5B–5G) and are intentionally absent here.
+Provides the reusable building blocks every tool shares — franchise filtering, team
+filtering, windowing, and date-range extraction — plus the analytical tools as they are
+implemented one per Phase 5 sub-step. Implemented so far: ``team_average_points``,
+``average_points_allowed``, ``team_record``. Pending: ``top_scoring_teams``,
+``head_to_head``, ``team_efficiency_summary``.
 
-Rules: pandas is the only source of truth; no helper prints, mutates its input, or
-rounds. Exhibition (All-Star) rows are excluded by default for franchise-level use.
+Rules: pandas is the only source of truth; no helper or tool prints, mutates its input,
+or rounds. Exhibition (All-Star) rows are excluded by default for franchise-level use.
 """
 
 from __future__ import annotations
@@ -147,3 +149,54 @@ def average_points_allowed(
         "average_points_allowed",
         window,
     )
+
+
+def team_record(
+    clean_df: pd.DataFrame, team: str, window: int | None = None
+) -> ToolResult:
+    """Win/loss record for a team over its most recent games (from ``win_flag``).
+
+    Args:
+        clean_df: The clean per-team-game view.
+        team: Exact canonical ``team_name``.
+        window: Number of most recent games; ``None`` uses all games.
+
+    Returns the §4.1 contract. ``wins`` counts ``win_flag``; ``losses`` is the remainder
+    (NBA games have no draws); ``win_percentage`` is ``wins / games_used`` (unrounded).
+    Invalid window → ``status="error"`` (checked first); a team with no games →
+    ``status="no_data"``; an over-long window uses all games with a warning.
+    """
+    tool = "team_record"
+    team_games = filter_team_games(clean_df, team)
+    try:
+        windowed, warnings = apply_window(team_games, window)
+    except ValueError as exc:
+        return error_result(tool, str(exc), meta=build_meta(team=team))
+
+    if windowed.empty:
+        return no_data_result(
+            tool,
+            result={"team": team, "wins": 0, "losses": 0, "record": "0-0",
+                    "games_used": 0, "win_percentage": None},
+            meta=build_meta(team=team, games_used=0, window_requested=window),
+            warnings=[f"No games found for team {team!r}."],
+        )
+
+    games_used = len(windowed)
+    wins = int(windowed["win_flag"].sum())
+    losses = games_used - wins
+    result = {
+        "team": team,
+        "wins": wins,
+        "losses": losses,
+        "record": f"{wins}-{losses}",
+        "games_used": games_used,
+        "win_percentage": wins / games_used,
+    }
+    meta = build_meta(
+        team=team,
+        games_used=games_used,
+        date_range=date_range_for(windowed),
+        window_requested=window,
+    )
+    return ok_result(tool, result, meta=meta, warnings=warnings)

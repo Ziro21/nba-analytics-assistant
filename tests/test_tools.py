@@ -1,8 +1,9 @@
-"""Phase 5A/5B/5C tests: tool result contract, shared dataframe helpers, and the first
-two analytical tools (``team_average_points``, ``average_points_allowed``).
+"""Phase 5A–5D tests: tool result contract, shared dataframe helpers, and the first
+three analytical tools (``team_average_points``, ``average_points_allowed``,
+``team_record``).
 
 Integration tests build the real clean frame through the real pipeline. The remaining
-tools (Phases 5D–5G) are not implemented or tested yet. No network, no LLM.
+tools (Phases 5E–5G) are not implemented or tested yet. No network, no LLM.
 """
 
 from __future__ import annotations
@@ -29,15 +30,15 @@ from src.tools import (
     filter_franchise_games,
     filter_team_games,
     team_average_points,
+    team_record,
 )
 
 META_KEYS = {"team", "games_used", "date_range", "window_requested", "season_id"}
 TOP_LEVEL_KEYS = {"status", "tool", "result", "meta", "warnings"}
 
 # Tools already implemented / still pending (shrinks each Phase 5 sub-step).
-IMPLEMENTED_TOOL_NAMES = ("team_average_points", "average_points_allowed")
+IMPLEMENTED_TOOL_NAMES = ("team_average_points", "average_points_allowed", "team_record")
 PENDING_TOOL_NAMES = (
-    "team_record",
     "top_scoring_teams",
     "head_to_head",
     "team_efficiency_summary",
@@ -350,6 +351,101 @@ def test_average_points_allowed_non_int_window_errors(clean_df) -> None:
 
 def test_average_points_allowed_no_data_warning_mentions_team(clean_df) -> None:
     res = average_points_allowed(clean_df, "Not A Real Team", window=5)
+    assert res["status"] == "no_data"
+    assert any("Not A Real Team" in w for w in res["warnings"])
+
+
+# --- Phase 5D: team_record --------------------------------------------------
+
+@pytest.mark.parametrize(
+    "team,wins,losses",
+    [
+        ("Golden State Warriors", 289, 223),
+        ("Boston Celtics", 359, 183),
+        ("Los Angeles Lakers", 267, 228),
+    ],
+)
+def test_team_record_oracle_all_games(clean_df, team, wins, losses) -> None:
+    res = team_record(clean_df, team, window=None)
+    games = wins + losses
+    assert res["status"] == "ok"
+    assert res["tool"] == "team_record"
+    assert res["result"]["wins"] == wins
+    assert res["result"]["losses"] == losses
+    assert res["result"]["record"] == f"{wins}-{losses}"
+    assert res["result"]["games_used"] == games
+    assert res["result"]["win_percentage"] == wins / games
+    json.dumps(res)
+
+
+def test_team_record_metadata(clean_df) -> None:
+    res = team_record(clean_df, "Golden State Warriors", window=None)
+    assert res["meta"]["team"] == "Golden State Warriors"
+    assert res["meta"]["games_used"] == 512
+    assert res["meta"]["window_requested"] is None
+    assert isinstance(res["meta"]["date_range"], list) and len(res["meta"]["date_range"]) == 2
+    assert res["meta"]["season_id"] is None
+
+
+def test_team_record_window_none_no_warning(clean_df) -> None:
+    res = team_record(clean_df, "Golden State Warriors", window=None)
+    assert res["status"] == "ok"
+    assert res["warnings"] == []
+
+
+def test_team_record_positive_window_internal_consistency(clean_df) -> None:
+    res = team_record(clean_df, "Golden State Warriors", window=5)
+    r = res["result"]
+    assert res["status"] == "ok"
+    assert r["games_used"] == 5
+    assert r["wins"] + r["losses"] == 5
+    assert res["meta"]["window_requested"] == 5
+    assert r["win_percentage"] == r["wins"] / 5
+
+
+def test_team_record_over_large_window_warns(clean_df) -> None:
+    res = team_record(clean_df, "Golden State Warriors", window=10_000)
+    assert res["status"] == "ok"
+    assert res["result"]["games_used"] == 512
+    assert len(res["warnings"]) == 1
+
+
+def test_team_record_window_zero_errors(clean_df) -> None:
+    res = team_record(clean_df, "Golden State Warriors", window=0)
+    assert res["status"] == "error"
+
+
+def test_team_record_unknown_team_no_data(clean_df) -> None:
+    res = team_record(clean_df, "Not A Real Team", window=5)
+    assert res["status"] == "no_data"
+    assert res["result"]["games_used"] == 0
+    assert res["meta"]["games_used"] == 0
+    assert res["meta"]["date_range"] is None
+    assert res["warnings"]
+    json.dumps(res)
+
+
+def test_team_record_unknown_team_invalid_window_errors(clean_df) -> None:
+    res = team_record(clean_df, "Not A Real Team", window=0)
+    assert res["status"] == "error"
+
+
+def test_team_record_does_not_mutate_clean_df(clean_df) -> None:
+    before = clean_df.copy(deep=True)
+    team_record(clean_df, "Golden State Warriors", window=5)
+    assert clean_df.equals(before)
+
+
+def test_team_record_bool_window_errors(clean_df) -> None:
+    assert team_record(clean_df, "Golden State Warriors", window=True)["status"] == "error"
+
+
+def test_team_record_non_int_window_errors(clean_df) -> None:
+    assert team_record(clean_df, "Golden State Warriors", window="5")["status"] == "error"
+
+
+def test_team_record_no_data_warning_mentions_team(clean_df) -> None:
+    res = team_record(clean_df, "Not A Real Team", window=5)
     assert res["status"] == "no_data"
     assert any("Not A Real Team" in w for w in res["warnings"])
 
