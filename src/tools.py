@@ -79,43 +79,71 @@ def date_range_for(df: pd.DataFrame) -> list[str] | None:
 
 # --- Analytical tools (Phase 5B+) -------------------------------------------
 
-def team_average_points(
-    clean_df: pd.DataFrame, team: str, window: int | None = None
+def _team_average_metric(
+    clean_df: pd.DataFrame,
+    team: str,
+    metric_column: str,
+    result_key: str,
+    tool_name: str,
+    window: int | None = None,
 ) -> ToolResult:
-    """Average points scored (``points_for``) by a team over its most recent games.
+    """Shared logic for a single-metric team average over recent games.
 
-    Args:
-        clean_df: The clean per-team-game view.
-        team: Exact canonical ``team_name``.
-        window: Number of most recent games to average; ``None`` uses all games.
-
-    Status semantics: an invalid window (``<= 0``, non-int) yields ``status="error"``;
-    a team with no matching games yields ``status="no_data"`` (the tool ran but found
-    nothing — distinguishing a genuinely unknown team is the validator's job upstream).
-    An over-long window uses all available games with a warning. pandas computes the
-    mean — the value is returned unrounded.
+    Used by ``team_average_points`` (points_for) and ``average_points_allowed``
+    (points_against). Status semantics: an invalid window (``<= 0``, non-int, bool)
+    yields ``status="error"`` (checked first, so it wins even for an unknown team); a
+    team with no matching games yields ``status="no_data"`` (distinguishing a genuinely
+    unknown team is the validator's job upstream). An over-long window uses all games
+    with a warning. pandas computes the mean — the value is returned unrounded.
     """
-    tool = "team_average_points"
     team_games = filter_team_games(clean_df, team)
-    # Validate the window first, so an invalid argument always errors (even for an
-    # unknown team) before the no-data check.
     try:
         windowed, warnings = apply_window(team_games, window)
     except ValueError as exc:
-        return error_result(tool, str(exc), meta=build_meta(team=team))
+        return error_result(tool_name, str(exc), meta=build_meta(team=team))
 
     if windowed.empty:
         return no_data_result(
-            tool,
-            meta=build_meta(team=team, window_requested=window),
+            tool_name,
+            result={"team": team, result_key: None, "games_used": 0},
+            meta=build_meta(team=team, games_used=0, window_requested=window),
             warnings=[f"No games found for team {team!r}."],
         )
 
-    average_points = float(windowed["points_for"].mean())
+    value = float(windowed[metric_column].mean())
+    games_used = len(windowed)
     meta = build_meta(
         team=team,
-        games_used=len(windowed),
+        games_used=games_used,
         date_range=date_range_for(windowed),
         window_requested=window,
     )
-    return ok_result(tool, {"average_points": average_points}, meta=meta, warnings=warnings)
+    return ok_result(
+        tool_name,
+        {"team": team, result_key: value, "games_used": games_used},
+        meta=meta,
+        warnings=warnings,
+    )
+
+
+def team_average_points(
+    clean_df: pd.DataFrame, team: str, window: int | None = None
+) -> ToolResult:
+    """Average points scored (``points_for``) by a team over its most recent games."""
+    return _team_average_metric(
+        clean_df, team, "points_for", "average_points", "team_average_points", window
+    )
+
+
+def average_points_allowed(
+    clean_df: pd.DataFrame, team: str, window: int | None = None
+) -> ToolResult:
+    """Average points conceded (``points_against``) by a team over its most recent games."""
+    return _team_average_metric(
+        clean_df,
+        team,
+        "points_against",
+        "average_points_allowed",
+        "average_points_allowed",
+        window,
+    )

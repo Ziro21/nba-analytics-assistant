@@ -1,8 +1,8 @@
-"""Phase 5A/5B tests: tool result contract, shared dataframe helpers, and
-``team_average_points`` (the first analytical tool).
+"""Phase 5A/5B/5C tests: tool result contract, shared dataframe helpers, and the first
+two analytical tools (``team_average_points``, ``average_points_allowed``).
 
 Integration tests build the real clean frame through the real pipeline. The remaining
-tools (Phases 5C–5G) are not implemented or tested yet. No network, no LLM.
+tools (Phases 5D–5G) are not implemented or tested yet. No network, no LLM.
 """
 
 from __future__ import annotations
@@ -24,6 +24,7 @@ from src.tool_results import (
 )
 from src.tools import (
     apply_window,
+    average_points_allowed,
     date_range_for,
     filter_franchise_games,
     filter_team_games,
@@ -33,9 +34,9 @@ from src.tools import (
 META_KEYS = {"team", "games_used", "date_range", "window_requested", "season_id"}
 TOP_LEVEL_KEYS = {"status", "tool", "result", "meta", "warnings"}
 
-# Tools not yet implemented (shrinks each Phase 5 sub-step).
+# Tools already implemented / still pending (shrinks each Phase 5 sub-step).
+IMPLEMENTED_TOOL_NAMES = ("team_average_points", "average_points_allowed")
 PENDING_TOOL_NAMES = (
-    "average_points_allowed",
     "team_record",
     "top_scoring_teams",
     "head_to_head",
@@ -213,6 +214,8 @@ def test_date_range_for_empty() -> None:
 # --- I. scope / import sanity ----------------------------------------------
 
 def test_pending_analytical_tools_not_implemented_yet() -> None:
+    for name in IMPLEMENTED_TOOL_NAMES:
+        assert hasattr(tools_module, name), f"{name} should exist"
     for name in PENDING_TOOL_NAMES:
         assert not hasattr(tools_module, name), f"{name} should not exist yet"
 
@@ -277,6 +280,78 @@ def test_team_average_points_does_not_mutate_clean_df(clean_df) -> None:
     before = clean_df.copy(deep=True)
     team_average_points(clean_df, "Golden State Warriors", window=5)
     assert clean_df.equals(before)
+
+
+# --- Phase 5C: average_points_allowed --------------------------------------
+
+def test_average_points_allowed_oracle_last5(clean_df) -> None:
+    res = average_points_allowed(clean_df, "Golden State Warriors", window=5)
+    assert res["status"] == "ok"
+    assert res["tool"] == "average_points_allowed"
+    assert res["result"]["average_points_allowed"] == pytest.approx(117.0, abs=1e-2)
+    assert res["result"]["games_used"] == 5
+    assert res["result"]["team"] == "Golden State Warriors"
+    assert res["meta"]["team"] == "Golden State Warriors"
+    assert res["meta"]["games_used"] == 5
+    assert res["meta"]["window_requested"] == 5
+    json.dumps(res)
+
+
+def test_average_points_allowed_window_none_uses_all(clean_df) -> None:
+    res = average_points_allowed(clean_df, "Golden State Warriors", window=None)
+    assert res["status"] == "ok"
+    assert res["meta"]["games_used"] == 512
+    assert res["meta"]["window_requested"] is None
+    assert res["warnings"] == []
+
+
+def test_average_points_allowed_over_large_window_warns(clean_df) -> None:
+    res = average_points_allowed(clean_df, "Golden State Warriors", window=10_000)
+    assert res["status"] == "ok"
+    assert res["meta"]["games_used"] == 512
+    assert len(res["warnings"]) == 1
+
+
+def test_average_points_allowed_window_zero_errors(clean_df) -> None:
+    res = average_points_allowed(clean_df, "Golden State Warriors", window=0)
+    assert res["status"] == "error"
+
+
+def test_average_points_allowed_unknown_team_no_data(clean_df) -> None:
+    res = average_points_allowed(clean_df, "Not A Real Team", window=5)
+    assert res["status"] == "no_data"
+    assert res["result"]["games_used"] == 0
+    assert res["meta"]["games_used"] == 0
+    assert res["meta"]["date_range"] is None
+    assert res["warnings"]
+    json.dumps(res)
+
+
+def test_average_points_allowed_unknown_team_invalid_window_errors(clean_df) -> None:
+    res = average_points_allowed(clean_df, "Not A Real Team", window=0)
+    assert res["status"] == "error"
+
+
+def test_average_points_allowed_does_not_mutate_clean_df(clean_df) -> None:
+    before = clean_df.copy(deep=True)
+    average_points_allowed(clean_df, "Golden State Warriors", window=5)
+    assert clean_df.equals(before)
+
+
+def test_average_points_allowed_bool_window_errors(clean_df) -> None:
+    res = average_points_allowed(clean_df, "Golden State Warriors", window=True)
+    assert res["status"] == "error"
+
+
+def test_average_points_allowed_non_int_window_errors(clean_df) -> None:
+    res = average_points_allowed(clean_df, "Golden State Warriors", window="5")
+    assert res["status"] == "error"
+
+
+def test_average_points_allowed_no_data_warning_mentions_team(clean_df) -> None:
+    res = average_points_allowed(clean_df, "Not A Real Team", window=5)
+    assert res["status"] == "no_data"
+    assert any("Not A Real Team" in w for w in res["warnings"])
 
 
 def test_tools_import_needs_no_registry_parser_llm_formatter() -> None:
