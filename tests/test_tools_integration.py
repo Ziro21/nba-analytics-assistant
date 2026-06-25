@@ -52,7 +52,6 @@ SUCCESS_CALLS = (
 NEXT_LAYER_MODULES = (
     "src.query_parser",
     "src.llm_query_parser",
-    "src.intent_validator",
     "src.response_formatter",
     "src.assistant",
 )
