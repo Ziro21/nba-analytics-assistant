@@ -1,12 +1,16 @@
 """Sporting Risk NBA Analytics Assistant — source package.
 
-A deterministic, tool-based NL analytics assistant over a structured NBA CSV.
-pandas is the only source of truth for statistics; the LLM (optional mode) only
-maps a question to a registered tool and its arguments — it never computes.
+A deterministic, tool-based natural-language analytics assistant over a structured NBA CSV.
+pandas is the only source of truth for statistics; the rule-based parser only maps a question to a
+registered tool and its arguments — nothing in the language layer ever computes a number.
 
-Note: tool registration is explicit (no import side-effects). The registry is built
-by explicitly registering each tool's `ToolSpec`; this package does not import tools to
-trigger hidden registration.
+Note: tool registration is explicit (no import side-effects). The registry is built by explicitly
+registering each tool's `ToolSpec`; this package does not import tools to trigger hidden registration.
 """
 
-__all__: list[str] = []
+from __future__ import annotations
+
+# Single source of truth for the package version. Post-v1.0.0 development pre-release.
+__version__ = "1.1.0-dev"
+
+__all__ = ["__version__"]

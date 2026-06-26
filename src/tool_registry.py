@@ -23,6 +23,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Any
 
+from src.config import DEFAULT_TOP_N
 from src.tool_results import ToolResult, error_result
 from src.tools import (
     average_points_allowed,
@@ -265,7 +266,7 @@ def build_default_registry() -> ToolRegistry:
         description="Rank teams by average points scored, optionally within a dataset season_id.",
         parameters=(
             ToolParameter(name="n", type="int", required=False,
-                          description="Number of top teams to return.", default=5),
+                          description="Number of top teams to return.", default=DEFAULT_TOP_N),
             ToolParameter(name="season_id", type="int|null", required=False,
                           description="Optional opaque dataset season identifier.", default=None),
         ),

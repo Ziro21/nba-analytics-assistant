@@ -11,6 +11,7 @@ import pytest
 
 import src.assistant_runtime as runtime_module
 import src.cli as cli
+from src import __version__
 from src.assistant_types import AssistantIssue, AssistantResult
 from src.cli import main
 
@@ -63,6 +64,33 @@ def test_unknown_flag_returns_argparse_error(capsys) -> None:
     err = capsys.readouterr().err
     assert code == 2
     assert err.strip() and "Traceback" not in err  # argparse usage, not a crash
+
+
+# --- 11.1b --version --------------------------------------------------------
+
+def test_cli_version_exits_zero_and_prints_version(capsys) -> None:
+    assert main(["--version"]) == 0
+    out = capsys.readouterr().out
+    assert "sporting-risk-nba-assistant" in out
+    assert __version__ in out  # e.g. 1.1.0-dev
+
+
+def test_cli_version_does_not_build_runtime(monkeypatch, capsys) -> None:
+    built: list[int] = []
+
+    def _builder():
+        built.append(1)
+        return FakeRuntime()
+
+    monkeypatch.setattr(runtime_module, "build_default_runtime", _builder)
+    assert main(["--version"]) == 0
+    assert built == []  # --version must not bootstrap or load the dataset
+
+
+def test_cli_version_flag_does_not_break_normal_query(monkeypatch) -> None:
+    fake = _install(monkeypatch, FakeRuntime(status="answer", message="ok"))
+    assert main(["Warriors record"]) == 0  # normal query path still works with the flag present
+    assert fake.queries == ["Warriors record"]
 
 
 # --- 11.2 successful human-readable output ----------------------------------

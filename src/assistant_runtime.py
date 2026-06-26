@@ -2,7 +2,8 @@
 
 The bootstrap layer that prepares the dependencies the pure assistant orchestrator needs:
 
-    raw dataset -> validated raw -> clean view -> validated clean view -> validation context
+    dataset fingerprint -> raw dataset -> validated raw -> clean view -> validated clean view
+    -> validation context
 
 It is the ONLY assistant-layer module allowed to load data. ``src/assistant.py`` stays pure
 orchestration (no pandas, no data loading). The runtime computes no statistics itself — it builds
@@ -21,9 +22,14 @@ from typing import Optional, Union
 
 from src.assistant import answer_query
 from src.assistant_types import AssistantResult
+from src.config import DATASET_PATH, EXPECTED_DATASET_SHA256
 from src.data_loader import load_raw_dataset
 from src.data_model import build_clean_view, validate_clean_view
-from src.data_validation import validate_dataset
+from src.data_validation import (
+    DatasetFingerprintResult,
+    validate_dataset,
+    validate_dataset_fingerprint,
+)
 from src.tool_registry import DEFAULT_REGISTRY
 from src.validation_context import build_validation_context
 
@@ -35,6 +41,7 @@ class AssistantRuntime:
     clean_df: object
     validation_context: object
     registry: object
+    dataset_fingerprint: Optional[DatasetFingerprintResult] = None  # bootstrap metadata only.
 
     def answer(self, query: str) -> AssistantResult:
         """Answer one query by delegating to the pure orchestrator. Computes nothing itself."""
@@ -46,20 +53,30 @@ class AssistantRuntime:
         )
 
 
-def build_default_runtime(dataset_path: Optional[Union[str, Path]] = None) -> AssistantRuntime:
+def build_default_runtime(
+    dataset_path: Optional[Union[str, Path]] = None, *, strict_dataset_hash: bool = False
+) -> AssistantRuntime:
     """Build the assistant runtime from the on-disk dataset using the existing project pipeline.
 
-    Steps: load raw -> validate raw -> build clean view -> validate clean view -> build the
-    validation context against ``DEFAULT_REGISTRY``. Any setup failure raises (configuration
-    error); a partially constructed runtime is never returned.
+    Steps: fingerprint dataset -> load raw -> validate raw -> build clean view -> validate clean
+    view -> build the validation context against ``DEFAULT_REGISTRY``. The fingerprint compares the
+    file's SHA-256 to ``EXPECTED_DATASET_SHA256``; by default a mismatch is recorded as metadata
+    (warning) and bootstrap proceeds, so a reviewer can run a different dataset. With
+    ``strict_dataset_hash=True`` a mismatch raises before any work. The check changes no statistic.
+    Any setup failure raises (configuration error); a partially constructed runtime is never returned.
     """
-    raw = load_raw_dataset() if dataset_path is None else load_raw_dataset(dataset_path)
+    path = DATASET_PATH if dataset_path is None else Path(dataset_path)
+    fingerprint = validate_dataset_fingerprint(
+        path, EXPECTED_DATASET_SHA256, strict=strict_dataset_hash
+    )
+    raw = load_raw_dataset(path)
     validate_dataset(raw)
     clean = build_clean_view(raw)
     validate_clean_view(clean, raw)
     context = build_validation_context(clean, registry=DEFAULT_REGISTRY)
     return AssistantRuntime(
         clean_df=clean,
+        dataset_fingerprint=fingerprint,
         validation_context=context,
         registry=DEFAULT_REGISTRY,
     )

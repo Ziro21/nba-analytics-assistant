@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import pandas as pd
 
+from src.config import DEFAULT_TOP_N
 from src.tool_results import (
     ToolResult,
     build_meta,
@@ -218,7 +219,7 @@ def _require_positive_int(value: object, name: str) -> None:
 
 
 def top_scoring_teams(
-    clean_df: pd.DataFrame, n: int = 5, season_id: int | None = None
+    clean_df: pd.DataFrame, n: int = DEFAULT_TOP_N, season_id: int | None = None
 ) -> ToolResult:
     """Rank franchises by mean ``points_for`` (exhibition rows excluded by default).
 

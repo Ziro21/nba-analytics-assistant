@@ -4,13 +4,32 @@ Post-v1.0.0 improvement backlog from the phase-by-phase technical audit
 (`docs/phase_by_phase_audit.md`). The shipped v1.0.0 is complete and has no release blockers; these
 are prioritised improvements for a future minor release. Each item is specific and actionable.
 
+> **Status update:** the four highest-priority should-fix items (S1–S4) were implemented in
+> **v1.1.0-A** (Quality Hardening). They are marked **Done** in place below and summarised in the
+> next section; their full detail is retained for traceability.
+
+## Completed in v1.1.0-A
+
+- **S1 — Dataset content-hash guard.** SHA-256 over the raw CSV bytes, centralised in `config.py`
+  (`EXPECTED_DATASET_SHA256`), validated at runtime bootstrap — warning by default, with
+  `build_default_runtime(strict_dataset_hash=True)` to fail fast.
+- **S2 — Config cleanup.** Removed the dead `DEFAULT_WINDOW`/`MIN_WINDOW`/`MAX_WINDOW`; `DEFAULT_TOP_N`
+  retained and wired into both `top_scoring_teams` and its registry schema (one source of truth).
+- **S3 — Architecture explainability.** Validator priority model and parser fallback (safe-by-validator)
+  documented in `docs/architecture.md`.
+- **S4 — CLI `--version`.** Prints `sporting-risk-nba-assistant 1.1.0-dev`, exit 0, no dataset load.
+
 ## Must fix
 
 **None.** No defects or release blockers were found in the audit. v1.0.0 is acceptable as released.
 
 ## Should fix
 
+_All four items below were implemented in v1.1.0-A (see "Completed in v1.1.0-A" above); the detail is
+kept for traceability._
+
 ### S1 — Dataset integrity / content-hash guard
+- **Status:** ✅ Done in v1.1.0-A.
 - **Phase:** 4 (data loading/validation).
 - **Severity:** medium.
 - **Reason:** the system trusts `data/nba_dataset.csv` by shape (row/column counts) only. A swapped
@@ -24,6 +43,8 @@ are prioritised improvements for a future minor release. Each item is specific a
   a mismatch is detected/surfaced.
 
 ### S2 — Remove (or wire) the dead configuration constants
+- **Status:** ✅ Done in v1.1.0-A (window constants removed; `DEFAULT_TOP_N` wired into the tool and
+  the registry schema).
 - **Phase:** 4 / `config.py`.
 - **Severity:** low–medium (maintainability/correctness clarity).
 - **Reason:** `DEFAULT_WINDOW`, `MIN_WINDOW`, `MAX_WINDOW`, and `DEFAULT_TOP_N` are defined but used
@@ -36,6 +57,7 @@ are prioritised improvements for a future minor release. Each item is specific a
   that the tool default equals the config value.
 
 ### S3 — Document the validator priority model and the parser fallback design
+- **Status:** ✅ Done in v1.1.0-A (`docs/architecture.md`).
 - **Phase:** 7 / 8 (documentation only).
 - **Severity:** low.
 - **Reason:** the validator's multi-error priority and the parser's precision-gated fallback are the
@@ -46,6 +68,7 @@ are prioritised improvements for a future minor release. Each item is specific a
 - **Test coverage:** a documentation-existence/keyword test if desired.
 
 ### S4 — CLI `--version`
+- **Status:** ✅ Done in v1.1.0-A.
 - **Phase:** 10 (CLI).
 - **Severity:** low.
 - **Reason:** a released tool should report its version; useful for bug reports and reviewers.

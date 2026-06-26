@@ -26,10 +26,14 @@ SPECIAL_TEAMS: tuple[str, ...] = ("Team Stars", "Team Stripes", "Team World")
 # `season_id` is an OPAQUE integer index — never decoded to a calendar season.
 EXPECTED_SEASON_IDS: tuple[int, ...] = (26, 28, 30, 32, 34, 36)
 
-# --- Tool / parser defaults (surfaced loudly in output, never silent) ------
-DEFAULT_WINDOW: int = 5      # used when a query says "recently" with no number.
-DEFAULT_TOP_N: int = 5       # used by top_scoring_teams when N is unspecified.
+# --- Tool defaults ---------------------------------------------------------
+# Default number of teams returned by ``top_scoring_teams`` when N is unspecified.
+# There is deliberately NO default window and NO global window bound: a window query must carry an
+# explicit number, and vague time such as "recently" is rejected by the parser rather than defaulted.
+DEFAULT_TOP_N: int = 5
 
-# Validator bounds for a requested window (a positive int within sane limits).
-MIN_WINDOW: int = 1
-MAX_WINDOW: int = 10_000     # guards against absurd/typo input; far above any team's game count.
+# --- Dataset integrity fingerprint -----------------------------------------
+# SHA-256 of the bundled raw CSV bytes, used to detect a swapped or corrupted dataset at bootstrap.
+# Computed from data/nba_dataset.csv; pandas remains the only source of truth for any statistic.
+DATASET_HASH_ALGORITHM: str = "sha256"
+EXPECTED_DATASET_SHA256: str = "090d9ad663022e2fd94b166f2155d9e2b29ab7ae4b65d57dbcff1719cbfbe69f"

@@ -47,6 +47,13 @@ def test_backlog_has_all_severity_categories() -> None:
         assert category in text, f"backlog should include {category!r}"
 
 
+def test_backlog_marks_v1_1_0_a_items_completed() -> None:
+    # Guard against the backlog drifting back to presenting the now-implemented S1-S4 as open work.
+    text = BACKLOG.read_text().lower()
+    assert "completed in v1.1.0-a" in text
+    assert "done in v1.1.0-a" in text
+
+
 def test_audit_docs_do_not_claim_unsupported_features() -> None:
     text = _audit_blob()
     found = [claim for claim in FORBIDDEN_POSITIVE_CLAIMS if claim in text]

@@ -49,17 +49,57 @@ CLI        collects the query and displays the result.
 These boundaries are enforced by import-scope tests (e.g. importing `src.assistant` pulls in no
 pandas, data, tools, or registry; importing `src.cli` pulls in nothing heavy until it runs).
 
+### Validator priority model
+
+The validator can accumulate **multiple independent issues** for one query (for example an ambiguous
+team *and* a malformed window). All of them are returned in the structured `errors` list, but the
+formatter selects a single **primary** issue for the top-level clarification sentence, in this fixed
+priority order (highest first):
+
+1. `ambiguous_team` — the surface matches more than one franchise (e.g. "LA", "New York");
+2. `unknown_team` — no confident match (suggestions are offered, never auto-applied);
+3. `invalid_special_team` — an exhibition side (Team Stars/Stripes/World) is not a franchise;
+4. `same_team_head_to_head` — a head-to-head needs two *different* teams;
+5. `missing_required_argument`;
+6. `invalid_window` / `invalid_n` / `invalid_season_id`;
+7. any other validation error (fallback: the first issue reported).
+
+Team-identity problems are surfaced before argument-shape problems because naming the right team is
+the precondition for a meaningful answer. **Ambiguous and unknown teams are never auto-resolved** —
+the assistant asks the user to choose, and suggestions are guidance only. Execution happens **only
+after validation succeeds**, so a lower-priority issue can never leak a guessed statistic.
+
+### Parser fallback design (safe-by-validator)
+
+The rule parser is deterministic and conservative. It extracts a candidate tool plus **raw** argument
+strings; it does **not** canonicalise teams, validate, or execute. A gazetteer handles known team
+surfaces; a narrow, precision-gated structural fallback may additionally pick up a single
+unrecognised token as a *team-like candidate* so a near-miss is surfaced rather than silently dropped.
+
+This fallback is safe because **every raw argument still passes through the validator**. A fallback
+false positive therefore becomes an `unknown_team` (or another validation error) and a clarification
+request — never a guessed answer. For example, "Who are the champions?" does not map to a supported
+metric and is reported as unsupported/unknown rather than executed. The parser never claims to
+understand arbitrary natural language; it either maps a query to a supported family or fails safely.
+
 ## Data flow
 
 ```
+0. Runtime fingerprints the dataset file    (validate_dataset_fingerprint, SHA-256 over raw bytes)
 1. Runtime loads the raw dataset            (load_raw_dataset)
 2. Runtime validates the raw dataset        (validate_dataset)
 3. Runtime builds the clean view            (build_clean_view)
 4. Runtime validates the clean view         (validate_clean_view)
 5. Runtime builds the validation context    (build_validation_context, against the registry)
-6. Runtime holds {clean_df, validation_context, registry}
+6. Runtime holds {clean_df, validation_context, registry, dataset_fingerprint}
 7. Each query: assistant parses → validates → registry executes a tool on clean_df → formats
 ```
+
+The step-0 fingerprint compares the dataset file's SHA-256 to `EXPECTED_DATASET_SHA256`. By default a
+mismatch is recorded as bootstrap metadata (a warning on the runtime's `dataset_fingerprint`) and
+startup proceeds, so a reviewer can intentionally run a different file; `build_default_runtime(...,
+strict_dataset_hash=True)` instead raises before any work. The check reads raw bytes only and changes
+no statistic — pandas remains the sole source of truth for every number.
 
 ## Result contract
 

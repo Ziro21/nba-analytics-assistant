@@ -14,9 +14,15 @@ derive opponent names, build a clean model, filter exhibition rows, or zero-fill
 
 from __future__ import annotations
 
+import hashlib
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Optional, Union
+
 import pandas as pd
 
 from src.config import (
+    DATASET_HASH_ALGORITHM,
     EXPECTED_SEASON_IDS,
     INDEX_COLUMN,
     RAW_DATE_COLUMN,
@@ -80,6 +86,64 @@ TOOL_COLUMN_DEPENDENCIES: dict[str, tuple[str, ...]] = {
 
 class DataValidationError(Exception):
     """Raised when the dataset violates a proven structural assumption."""
+
+
+class DatasetIntegrityError(DataValidationError):
+    """Raised in strict mode when the dataset file does not match the expected fingerprint."""
+
+
+# --- Dataset integrity fingerprint ------------------------------------------
+# A defence against a silently swapped/corrupted CSV: shape and schema can match while the bytes
+# (and therefore every computed statistic) differ. The hash is taken over the RAW FILE BYTES, never
+# a dataframe representation, so it is independent of pandas parsing. This changes no analytics.
+
+@dataclass(frozen=True)
+class DatasetFingerprintResult:
+    """Outcome of comparing a dataset file's content hash against the expected fingerprint."""
+
+    algorithm: str
+    actual_hash: str
+    expected_hash: str
+    matches: bool
+    warning: Optional[str] = None
+
+
+def compute_file_sha256(path: Union[str, Path]) -> str:
+    """Return the SHA-256 hex digest of a file's raw bytes (streamed; constant memory)."""
+    digest = hashlib.sha256()
+    with open(path, "rb") as handle:
+        for chunk in iter(lambda: handle.read(65536), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def validate_dataset_fingerprint(
+    path: Union[str, Path], expected_hash: str, *, strict: bool = False
+) -> DatasetFingerprintResult:
+    """Compare the file's SHA-256 against ``expected_hash``.
+
+    Match → a result with ``matches=True``. Mismatch → ``matches=False`` with a clear ``warning``;
+    in ``strict`` mode a mismatch raises :class:`DatasetIntegrityError` instead. This never mutates
+    the file and never changes any computed statistic — it only reports on the bytes present.
+    """
+    actual = compute_file_sha256(path)
+    matches = actual == expected_hash
+    warning: Optional[str] = None
+    if not matches:
+        warning = (
+            f"Dataset integrity check: {Path(path).name} does not match the expected "
+            f"{DATASET_HASH_ALGORITHM} fingerprint (expected {expected_hash[:12]}…, got "
+            f"{actual[:12]}…). Results reflect the file actually present, not the released dataset."
+        )
+        if strict:
+            raise DatasetIntegrityError(warning)
+    return DatasetFingerprintResult(
+        algorithm=DATASET_HASH_ALGORITHM,
+        actual_hash=actual,
+        expected_hash=expected_hash,
+        matches=matches,
+        warning=warning,
+    )
 
 
 # --- Individual validators --------------------------------------------------

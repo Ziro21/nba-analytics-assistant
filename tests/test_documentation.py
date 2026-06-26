@@ -116,3 +116,20 @@ def test_no_stale_legacy_entrypoint_claims() -> None:
 def test_documented_entry_points_are_importable() -> None:
     assert importlib.util.find_spec("src.cli") is not None
     assert importlib.util.find_spec("src.assistant_runtime") is not None
+
+
+# --- v1.1.0-A: architecture explainability (validator priority + parser fallback) ----
+
+def test_architecture_documents_validator_priority() -> None:
+    text = _text(REPO_ROOT / "docs" / "architecture.md")
+    assert "validator priority" in text
+    for code in ("ambiguous_team", "unknown_team", "same_team_head_to_head"):
+        assert code in text, f"architecture should document {code!r} in the priority model"
+    assert "never auto-resolved" in text  # ambiguous/unknown teams are never auto-resolved
+
+
+def test_architecture_documents_parser_fallback_safe_by_validator() -> None:
+    text = _text(REPO_ROOT / "docs" / "architecture.md")
+    assert "parser fallback" in text
+    assert "safe-by-validator" in text
+    assert "unknown_team" in text  # a fallback false positive becomes unknown_team, not an answer

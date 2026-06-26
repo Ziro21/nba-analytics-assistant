@@ -3,6 +3,14 @@
 A post-release (v1.0.0) technical audit of the Sporting Risk NBA Analytics Assistant. This is a
 review document only — it changes no production behaviour. Grades are deliberately not inflated.
 
+> **Snapshot note (read first):** this audit is a **point-in-time record of the v1.0.0 state**. The
+> figures and "should fix" items below describe v1.0.0 as released. The four top-ranked should-fix
+> items — **S1 dataset content-hash guard, S2 dead-config cleanup, S3 validator/parser docs, S4 CLI
+> `--version`** — were subsequently **implemented in v1.1.0-A** (see `docs/improvement_backlog.md`,
+> "Completed in v1.1.0-A"). Test counts here (1128 baseline / 1134 with audit-doc tests) are the
+> v1.0.0-era numbers; the live suite is larger after v1.1.0-A. The per-phase grades are left as the
+> original v1.0.0 assessment for historical accuracy.
+
 ## Executive summary
 
 The released v1.0.0 is a complete, deterministic, well-tested NBA analytics assistant. The

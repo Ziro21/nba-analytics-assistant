@@ -15,6 +15,7 @@ import sys
 from collections.abc import Sequence
 from typing import Optional
 
+from src import __version__
 from src.assistant_types import (
     ASSISTANT_STATUS_ANSWER,
     ASSISTANT_STATUS_CLARIFICATION_NEEDED,
@@ -53,6 +54,10 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--json", action="store_true", dest="as_json",
         help="print the full structured AssistantResult as JSON",
+    )
+    parser.add_argument(
+        "--version", action="version", version=f"{PROG} {__version__}",
+        help="print the program version and exit (does not load the dataset)",
     )
     return parser
 
