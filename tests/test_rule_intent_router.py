@@ -28,7 +28,6 @@ SLOT_KEYS = ("team", "team_a", "team_b", "window", "n", "season_id")
 FORBIDDEN_MODULES = (  # 8C/8D legitimately added the catalogue, slot extractor, and parser
     "src.rule_parser_validation_integration",
     "src.llm_query_parser",
-    "src.assistant",
 )
 
 # Routing-vs-parse distinction for the Phase 8A UNSUPPORTED corpus.

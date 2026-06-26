@@ -36,7 +36,7 @@ CANONICAL_TEAMS = (
 SPECIAL_TEAMS = ("Team Stars", "Team Stripes", "Team World")
 
 FORBIDDEN_MODULES = (
-    "src.query_parser", "src.llm_query_parser", "src.assistant",
+    "src.query_parser", "src.llm_query_parser",
 )
 
 

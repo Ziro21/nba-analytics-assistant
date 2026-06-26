@@ -164,6 +164,5 @@ def test_catalogue_import_is_lightweight() -> None:
 
 
 def test_future_modules_absent() -> None:
-    for module in ("src.rule_parser_validation_integration", "src.llm_query_parser",
-                   "src.assistant"):
+    for module in ("src.rule_parser_validation_integration", "src.llm_query_parser"):
         assert importlib.util.find_spec(module) is None

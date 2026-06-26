@@ -343,7 +343,5 @@ def test_assistant_types_import_is_lightweight() -> None:
 
 
 def test_future_production_modules_absent() -> None:
-    for module in (
-        "src.assistant", "src.llm_query_parser", "src.parse_validate_execute",
-    ):
+    for module in ("src.llm_query_parser", "src.parse_validate_execute"):
         assert importlib.util.find_spec(module) is None

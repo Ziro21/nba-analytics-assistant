@@ -29,7 +29,6 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 FORBIDDEN_MODULES = (  # 8B-8D and 9B modules may now exist; these still must not.
     "src.rule_parser_validation_integration",
     "src.llm_query_parser",
-    "src.assistant",
 )
 
 EXPECTED_STATUSES = {"parsed", "no_parse", "ambiguous", "incomplete"}

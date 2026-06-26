@@ -42,7 +42,6 @@ EXPECTED_TOOL_ORDER = [
 LATER_LAYER_MODULES = (
     "src.query_parser",
     "src.llm_query_parser",
-    "src.assistant",
 )
 
 

@@ -48,12 +48,11 @@ SUCCESS_CALLS = (
     ("team_efficiency_summary", lambda c: team_efficiency_summary(c, "Boston Celtics", window=10)),
 )
 
-# src.tool_registry now exists (Phase 6A) and response_formatter exists (Phase 9B);
-# these later-layer systems still must not.
+# src.tool_registry now exists (Phase 6A), response_formatter exists (Phase 9B), and
+# assistant exists (Phase 9C); these later-layer systems still must not.
 NEXT_LAYER_MODULES = (
     "src.query_parser",
     "src.llm_query_parser",
-    "src.assistant",
 )
 
 

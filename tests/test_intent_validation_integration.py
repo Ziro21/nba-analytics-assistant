@@ -23,9 +23,7 @@ from src.intent_validator import validate_intent
 from src.tool_registry import DEFAULT_REGISTRY, execute
 from src.validation_context import build_validation_context
 
-FORBIDDEN_MODULES = (
-    "src.query_parser", "src.llm_query_parser", "src.assistant",
-)
+FORBIDDEN_MODULES = ("src.query_parser", "src.llm_query_parser")
 
 
 @pytest.fixture(scope="module")
@@ -232,6 +230,6 @@ def test_validation_results_serialise(pipeline) -> None:
 
 # --- 8. Scope guard ---------------------------------------------------------
 
-def test_no_parser_llm_formatter_assistant(pipeline) -> None:
+def test_no_query_or_llm_parser_modules(pipeline) -> None:
     for module in FORBIDDEN_MODULES:
         assert importlib.util.find_spec(module) is None, f"{module} should not exist yet"

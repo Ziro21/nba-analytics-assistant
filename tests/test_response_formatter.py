@@ -510,7 +510,6 @@ def test_response_formatter_does_not_contain_orchestration_calls() -> None:
 
 def test_future_orchestration_and_llm_modules_absent() -> None:
     for module in (
-        "src.assistant",
         "src.llm_query_parser",
         "src.parse_validate_execute",
         "src.api",

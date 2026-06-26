@@ -24,7 +24,7 @@ from src.validation_context import build_validation_context
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 FORBIDDEN_MODULES = (
-    "src.query_parser", "src.llm_query_parser", "src.assistant",
+    "src.query_parser", "src.llm_query_parser",
 )
 
 

@@ -16,7 +16,6 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 FORBIDDEN_MODULES = (  # 8C/8D legitimately added the catalogue, slot extractor, and parser
     "src.rule_parser_validation_integration",
     "src.llm_query_parser",
-    "src.assistant",
 )
 
 

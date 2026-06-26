@@ -27,11 +27,10 @@ from src.intent_types import (
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
 # validation_context/team_resolution (7B), intent_validator (7C), and
-# response_formatter (9B) now exist; these later-layer modules still must not.
+# response_formatter (9B) and assistant (9C) now exist; these later-layer modules still must not.
 FORBIDDEN_MODULES = (
     "src.query_parser",
     "src.llm_query_parser",
-    "src.assistant",
 )
 
 EXPECTED_CODES = {
