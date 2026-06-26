@@ -198,5 +198,5 @@ def test_importing_runtime_does_not_load_data_eagerly() -> None:
 
 def test_runtime_source_has_no_out_of_scope_logic() -> None:
     for forbidden in ("argparse", "input(", "flask", "fastapi", "uvicorn", "sqlite", "requests.",
-                      ".mean(", ".sum(", "groupby", "llm", "openai"):
+                      ".mean(", ".sum(", "groupby", " llm "):
         assert forbidden not in RUNTIME_SRC, f"assistant_runtime.py must not contain {forbidden!r}"

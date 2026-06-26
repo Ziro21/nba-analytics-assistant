@@ -1,39 +1,14 @@
-"""Thin CLI entry point: `python main.py "question" [--mode rule|llm]`.
+"""Convenience entry point.
 
-SCAFFOLDING ONLY at this phase. The full pipeline (parser -> validator -> registry
--> tool -> formatter) is wired in later phases; the orchestrator lands in Phase 10.
-This stub exists so the skeleton is runnable and the import path is verified early.
+`python main.py "your question"` runs exactly the same command-line demo as
+`python -m src.cli "your question"`. All logic lives in `src/cli.py`; this is a thin shim.
 """
 
 from __future__ import annotations
 
-import argparse
+import sys
 
-from src.config import DEFAULT_MODE, SUPPORTED_MODES
-
-
-def build_arg_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        description="Sporting Risk NBA Analytics Assistant (deterministic, tool-based).",
-    )
-    parser.add_argument("question", nargs="?", help="Natural-language question about the dataset.")
-    parser.add_argument(
-        "--mode",
-        choices=SUPPORTED_MODES,
-        default=DEFAULT_MODE,
-        help="Parser front end. 'rule' (default, no API key) or 'llm' (optional).",
-    )
-    return parser
-
-
-def main() -> None:
-    args = build_arg_parser().parse_args()
-    print(
-        "Skeleton in place — the assistant pipeline is not implemented yet "
-        f"(arrives in Phase 10). Received mode='{args.mode}', "
-        f"question={args.question!r}."
-    )
-
+from src.cli import main
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

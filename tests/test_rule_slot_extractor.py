@@ -175,7 +175,7 @@ def test_must_not_extract_fake_team(query, tool) -> None:
     assert args is None
 
 
-# --- special/exhibition team phrases (Codex 8C finding) ----------------------
+# --- special/exhibition team phrases (regression: full phrase, not a partial) -
 
 @pytest.mark.parametrize("query,team", [
     ("How many points do Team World average?", "Team World"),

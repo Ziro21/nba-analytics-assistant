@@ -1,9 +1,8 @@
 """Project-wide configuration: paths, defaults, and named constants.
 
-Importing this module has no side effects and requires no environment variables,
-so the system imports cleanly with no `.env` present (rule-based mode is key-free).
-Values here are deliberate design defaults, not dataset statistics — pandas remains
-the only source of truth for any computed figure.
+Importing this module has no side effects and requires no environment variables, so the
+system imports cleanly and runs fully offline. Values here are deliberate design defaults,
+not dataset statistics — pandas remains the only source of truth for any computed figure.
 """
 
 from __future__ import annotations
@@ -34,12 +33,3 @@ DEFAULT_TOP_N: int = 5       # used by top_scoring_teams when N is unspecified.
 # Validator bounds for a requested window (a positive int within sane limits).
 MIN_WINDOW: int = 1
 MAX_WINDOW: int = 10_000     # guards against absurd/typo input; far above any team's game count.
-
-# --- Front-end mode --------------------------------------------------------
-DEFAULT_MODE: str = "rule"   # deterministic, key-free default. "llm" is opt-in.
-SUPPORTED_MODES: tuple[str, ...] = ("rule", "llm")
-
-# --- LLM mode (used ONLY when mode == "llm"; ignored otherwise) -------------
-# A model that supports strict structured outputs / function calling.
-OPENAI_MODEL: str = "gpt-4o-2024-08-06"
-LLM_TEMPERATURE: float = 0.0   # deterministic tool selection.
