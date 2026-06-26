@@ -13,9 +13,7 @@ from src.rule_query_normalisation import normalise_query_text, query_tokens
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
-FORBIDDEN_MODULES = (
-    "src.rule_slot_extractor",
-    "src.team_surface_catalogue",
+FORBIDDEN_MODULES = (  # 8C legitimately added the catalogue + slot extractor
     "src.rule_parser",
     "src.rule_parser_validation_integration",
     "src.llm_query_parser",
