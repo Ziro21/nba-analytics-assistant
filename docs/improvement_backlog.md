@@ -35,23 +35,23 @@ are prioritised improvements for a future minor release. Each item is specific a
 - **Test coverage:** existing tool/validator tests must still pass; if wiring `DEFAULT_TOP_N`, a test
   that the tool default equals the config value.
 
-### S3 — CLI `--version`
+### S3 — Document the validator priority model and the parser fallback design
+- **Phase:** 7 / 8 (documentation only).
+- **Severity:** low.
+- **Reason:** the validator's multi-error priority and the parser's precision-gated fallback are the
+  two most subtle areas; a reviewer benefits from an explicit explanation that the fallback is
+  safe-by-validator. Architectural explainability is prioritised above CLI polish, so it precedes S4.
+- **Approach:** add a short section to `docs/architecture.md` (or a dedicated doc).
+- **Risk:** none (docs).
+- **Test coverage:** a documentation-existence/keyword test if desired.
+
+### S4 — CLI `--version`
 - **Phase:** 10 (CLI).
 - **Severity:** low.
 - **Reason:** a released tool should report its version; useful for bug reports and reviewers.
 - **Approach:** add a `--version` flag printing `v1.0.0` (sourced from a single `__version__`).
 - **Risk:** very low; argparse-only, no behaviour change to queries.
 - **Test coverage:** `main(["--version"])` exits 0 and prints the version.
-
-### S4 — Document the validator priority model and the parser fallback design
-- **Phase:** 7 / 8 (documentation only).
-- **Severity:** low.
-- **Reason:** the validator's multi-error priority and the parser's precision-gated fallback are the
-  two most subtle areas; a reviewer benefits from an explicit explanation that the fallback is
-  safe-by-validator.
-- **Approach:** add a short section to `docs/architecture.md` (or a dedicated doc).
-- **Risk:** none (docs).
-- **Test coverage:** a documentation-existence/keyword test if desired.
 
 ## Nice to have
 

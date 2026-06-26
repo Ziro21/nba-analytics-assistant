@@ -8,9 +8,10 @@ review document only — it changes no production behaviour. Grades are delibera
 The released v1.0.0 is a complete, deterministic, well-tested NBA analytics assistant. The
 architecture holds to strict single-responsibility boundaries (parser → validator → registry →
 pandas tools → formatter → assistant → runtime → CLI), pandas is the only source of statistics,
-and unsupported or ambiguous input fails safely with specific, actionable messages. The full test
-suite (1128 tests) passes offline and deterministically, and import-scope guards keep the assistant,
-formatter, and CLI free of pandas/data/tools.
+and unsupported or ambiguous input fails safely with specific, actionable messages. The v1.0.0 test
+suite (1128 tests) passes offline and deterministically — and the current suite is 1134 after this
+phase's audit-documentation tests — while import-scope guards keep the assistant, formatter, and CLI
+free of pandas/data/tools.
 
 There are **no must-fix defects and no release blockers**. The improvement opportunities are
 quality/polish items for a future v1.1.0: a few dead configuration constants, the per-invocation
@@ -26,7 +27,9 @@ minor CLI/docs polish. Overall the project is at a strong enterprise/portfolio g
 
 ## Test baseline
 
-- `python -m pytest tests/ -q` → **1128 passed**, ~11s, offline.
+- **v1.0.0 release baseline:** `python -m pytest tests/ -q` → **1128 passed**, offline, ~11s.
+- **Current suite (after adding the Phase 12A audit-documentation tests):** **1134 passed**. The +6
+  are the audit-doc guard tests in `tests/test_audit_documentation.py`; no production tests changed.
 - CLI smokes: Warriors avg → 114.4 (exit 0); `--json` Celtics vs Heat → `answer`/`head_to_head`
   (exit 0); New York → "Do you mean New York Knicks or Brooklyn Nets?" (exit 1); LA → Lakers/Clippers
   (exit 1); "Who is better?" → unsupported (exit 1). No tracebacks.
@@ -423,7 +426,8 @@ tested. No responsibility leakage found.
 
 ## Cross-cutting test findings
 
-673 test functions / 1128 cases, layered (unit → integration → acceptance gates), offline and
+The v1.0.0 baseline was 1128 cases; the current suite is 1134 after this phase's audit-documentation
+tests (~679 test functions). Layered (unit → integration → acceptance gates), offline and
 deterministic, with explicit import-scope and scope guards. Strengths: oracle-locked numbers,
 fail-closed coverage, drift tests. Watch-items: oracle tests are intentionally dataset-coupled (a
 dataset swap breaks them — which is desirable, but argues for a dataset-hash guard); a few
@@ -454,8 +458,9 @@ larger dataset or a long-running server were introduced.
 
 ## Improvement backlog summary
 
-No must-fix defects. Should-fix: dataset content-hash guard; remove the dead config constants; CLI
-`--version`; document the validator priority model + parser fallback design. Nice-to-have: fuzzy
+No must-fix defects. Should-fix (in priority order): dataset content-hash guard; remove the dead
+config constants; document the validator priority model + parser fallback design; CLI `--version`.
+Nice-to-have: fuzzy
 suggestion tuning; REPL/caching; packaging entry point; GitHub Release body; data dictionary.
 Future roadmap (separately designed, out of v1.0.0 scope): optional LLM parser behind the same
 validator; possession-weighted analytics; performance benchmarks. See `docs/improvement_backlog.md`.
@@ -467,5 +472,6 @@ safe, well-tested, and well-documented, with no release blockers. No urgent fixe
 
 If pursuing a **v1.1.0**, the highest-value first improvement is a **dataset content-hash guard
 plus removing the dead config constants** (small, high-signal correctness/maintainability wins),
-followed by **CLI `--version`** and **fuzzy-suggestion tuning**. Larger items (LLM parser, server
-mode) should be designed separately and never mixed into the deterministic v1.0.0 scope.
+followed by **documenting the validator priority model + parser fallback** (architectural
+explainability), then **CLI `--version`** and **fuzzy-suggestion tuning**. Larger items (LLM parser,
+server mode) should be designed separately and never mixed into the deterministic v1.0.0 scope.
