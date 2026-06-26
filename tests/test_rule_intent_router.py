@@ -25,8 +25,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 
 SLOT_KEYS = ("team", "team_a", "team_b", "window", "n", "season_id")
 
-FORBIDDEN_MODULES = (  # 8C legitimately added the catalogue + slot extractor
-    "src.rule_parser",
+FORBIDDEN_MODULES = (  # 8C/8D legitimately added the catalogue, slot extractor, and parser
     "src.rule_parser_validation_integration",
     "src.llm_query_parser",
     "src.response_formatter",

@@ -22,8 +22,7 @@ from src.rule_slot_extractor import (
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
-FORBIDDEN_MODULES = (
-    "src.rule_parser",
+FORBIDDEN_MODULES = (  # 8D legitimately added the rule parser
     "src.rule_parser_validation_integration",
     "src.llm_query_parser",
     "src.response_formatter",
