@@ -224,3 +224,20 @@ def test_delivery_public_files_have_no_ai_authorship_provenance_language() -> No
 def test_delivery_full_suite_command_is_documented() -> None:
     blob = "\n".join(p.read_text() for p in DOC_FILES if p.exists())
     assert "python -m pytest tests/ -q" in blob
+
+
+# --- Pre-11B UX patch: clarification messages name the options ---------------
+
+def test_delivery_ambiguous_team_message_names_both_options(runtime) -> None:
+    ny = runtime.answer("New York record")
+    assert ny.status == "clarification_needed"
+    assert "New York Knicks" in ny.message and "Brooklyn Nets" in ny.message
+    la = runtime.answer("How many points do LA average?")
+    assert "Los Angeles Lakers" in la.message and "Los Angeles Clippers" in la.message
+
+
+def test_delivery_cli_ambiguous_prints_both_team_options() -> None:
+    result = _run_cli("New York record")
+    assert result.returncode == 1
+    assert "New York Knicks" in result.stdout and "Brooklyn Nets" in result.stdout
+    assert "Traceback" not in result.stderr

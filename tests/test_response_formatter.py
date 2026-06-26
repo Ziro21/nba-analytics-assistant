@@ -45,12 +45,14 @@ from src.intent_types import (
 )
 from src.response_formatter import (
     SUPPORTED_TOOL_NAMES,
+    _format_suggestions,
     format_parse_failure,
     format_tool_result,
     format_validation_failure,
 )
 from src.rule_parser_types import (
     AMBIGUOUS_INTENT as PARSE_AMBIGUOUS_INTENT,
+    MISSING_OPPONENT,
     MISSING_TEAM,
     PARSE_STATUS_PARSED,
     UNSUPPORTED_QUERY as PARSE_UNSUPPORTED_QUERY,
@@ -520,3 +522,91 @@ def test_future_orchestration_and_llm_modules_absent() -> None:
         "src.server",
     ):
         assert importlib.util.find_spec(module) is None
+
+
+# --- Pre-11B UX patch: clarification message composition --------------------
+
+def _invalid(*errors):
+    return ValidationResult.invalid(errors=tuple(errors))
+
+
+def test_format_suggestions_formats_zero_one_two_and_three_items() -> None:
+    assert _format_suggestions([]) == ""
+    assert _format_suggestions(["A"]) == "A"
+    assert _format_suggestions(["A", "B"]) == "A or B"
+    assert _format_suggestions(["A", "B", "C"]) == "A, B, or C"
+    assert _format_suggestions(["A", 5, "", "B"]) == "A or B"  # non-strings/empties dropped
+
+
+def test_format_validation_failure_surfaces_ambiguous_team_suggestions() -> None:
+    vr = _invalid(ValidationError(
+        code=VALIDATION_AMBIGUOUS_TEAM, message="ambiguous", field="team", value="New York",
+        suggestions=("New York Knicks", "Brooklyn Nets")))
+    res = format_validation_failure(vr, tool_name="team_record")
+    assert res.status == ASSISTANT_STATUS_CLARIFICATION_NEEDED
+    assert "New York" in res.message
+    assert "New York Knicks" in res.message and "Brooklyn Nets" in res.message
+    assert res.errors[0].code == AMBIGUOUS_TEAM  # structured detail preserved
+    assert list(res.errors[0].suggestions) == ["New York Knicks", "Brooklyn Nets"]
+    json.dumps(res.to_dict())
+
+
+def test_format_validation_failure_surfaces_unknown_team_suggestion() -> None:
+    vr = _invalid(ValidationError(
+        code=VALIDATION_UNKNOWN_TEAM, message="unknown", field="team", value="Celics",
+        suggestions=("Boston Celtics",)))
+    res = format_validation_failure(vr)
+    assert "Celics" in res.message and "Boston Celtics" in res.message
+    assert res.errors[0].code == UNKNOWN_TEAM
+
+
+def test_format_validation_failure_surfaces_invalid_special_team_message() -> None:
+    vr = _invalid(ValidationError(
+        code=VALIDATION_INVALID_SPECIAL_TEAM, message="special", field="team", value="Team World"))
+    res = format_validation_failure(vr)
+    assert "Team World" in res.message and "exhibition" in res.message.lower()
+
+
+def test_format_validation_failure_surfaces_same_team_head_to_head_message() -> None:
+    vr = _invalid(ValidationError(
+        code=VALIDATION_SAME_TEAM_HEAD_TO_HEAD, message="same", field="team_b",
+        value="Boston Celtics"))
+    res = format_validation_failure(vr)
+    assert "two different teams" in res.message.lower()
+
+
+def test_format_validation_failure_falls_back_safely_when_suggestions_are_missing() -> None:
+    vr = _invalid(ValidationError(
+        code=VALIDATION_AMBIGUOUS_TEAM, message="ambiguous", field="team", value=None,
+        suggestions=()))
+    res = format_validation_failure(vr)
+    assert res.status == ASSISTANT_STATUS_CLARIFICATION_NEEDED
+    assert res.message  # non-empty generic fallback, no crash
+    json.dumps(res.to_dict())
+
+
+def test_format_validation_failure_uses_primary_validation_error_priority() -> None:
+    # an ambiguous team outranks a (defensive) window error for the headline.
+    vr = _invalid(
+        ValidationError(code=INVALID_WINDOW, message="bad window", field="window", value=-1),
+        ValidationError(code=VALIDATION_AMBIGUOUS_TEAM, message="ambiguous", field="team",
+                        value="LA", suggestions=("Los Angeles Lakers", "Los Angeles Clippers")),
+    )
+    res = format_validation_failure(vr)
+    assert "LA" in res.message and "Lakers" in res.message and "Clippers" in res.message
+    assert len(res.errors) == 2  # secondary error not hidden
+
+
+def test_format_parse_failure_incomplete_surfaces_specific_messages() -> None:
+    missing_opp = format_parse_failure(RuleParseResult.incomplete(
+        (ParseError(MISSING_OPPONENT, "no opponent", field="team_b"),), raw_query="Celtics vs"))
+    assert "second team" in missing_opp.message.lower()
+
+    missing_team = format_parse_failure(RuleParseResult.incomplete(
+        (ParseError(MISSING_TEAM, "no team", field="team_a"),), raw_query="vs Heat"))
+    assert "which team" in missing_team.message.lower()
+
+    vague_time = format_parse_failure(RuleParseResult.incomplete(
+        (ParseError(UNSUPPORTED_TIME_EXPRESSION, "vague", field="window"),),
+        raw_query="Warriors record lately"))
+    assert "number of games" in vague_time.message.lower()

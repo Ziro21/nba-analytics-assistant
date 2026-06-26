@@ -316,6 +316,102 @@ def _assistant_warning_from_parse_warning(warning: ParseWarning) -> AssistantIss
     )
 
 
+# --- clarification-message composition (a human-readable headline from structured issues) ---
+# These build the user-facing AssistantResult.message; the structured errors/suggestions are
+# unchanged. Pure, deterministic, standard-library only; any unhandled case returns None so the
+# caller falls back to the existing generic safe message.
+
+def _format_suggestions(suggestions: Sequence[object]) -> str:
+    """Join suggestion strings naturally: '' / 'A' / 'A or B' / 'A, B, or C'. Resolver order kept."""
+    items = [s for s in suggestions if isinstance(s, str) and s]
+    if not items:
+        return ""
+    if len(items) == 1:
+        return items[0]
+    if len(items) == 2:
+        return f"{items[0]} or {items[1]}"
+    return ", ".join(items[:-1]) + f", or {items[-1]}"
+
+
+def _select_primary_error(errors: Sequence, priority: Sequence[str]):
+    """The highest-priority error by code (for the headline), else the first error, else None."""
+    for code in priority:
+        for error in errors:
+            if error.code == code:
+                return error
+    return errors[0] if errors else None
+
+
+_VALIDATION_PRIORITY = (
+    VALIDATION_AMBIGUOUS_TEAM, VALIDATION_UNKNOWN_TEAM, VALIDATION_INVALID_SPECIAL_TEAM,
+    VALIDATION_SAME_TEAM_HEAD_TO_HEAD, MISSING_REQUIRED_ARGUMENT, INVALID_WINDOW,
+    INVALID_N, INVALID_SEASON_ID,
+)
+_PARSE_INCOMPLETE_PRIORITY = (
+    MISSING_TEAM, MISSING_OPPONENT, UNSUPPORTED_TIME_EXPRESSION, MISSING_NUMBER,
+)
+
+
+def _message_for_validation_error(error: ValidationError) -> Optional[str]:
+    """A specific user-facing headline for a validation error, or None to use the generic fallback."""
+    code = error.code
+    value = error.value if isinstance(error.value, str) and error.value else None
+    items = [s for s in error.suggestions if isinstance(s, str) and s]
+    joined = _format_suggestions(items)
+
+    if code == VALIDATION_AMBIGUOUS_TEAM:
+        if value is None:
+            return None
+        if len(items) == 2:
+            return f'"{value}" is ambiguous. Do you mean {joined}?'
+        if len(items) == 1:
+            return f'"{value}" is ambiguous. Did you mean {joined}?'
+        if items:
+            return f'"{value}" is ambiguous. Did you mean one of: {joined}?'
+        return f'"{value}" is ambiguous. Please use the full team name.'
+    if code == VALIDATION_UNKNOWN_TEAM:
+        if value is None:
+            return None
+        if len(items) >= 3:
+            return f'I could not find "{value}". Did you mean one of: {joined}?'
+        if items:
+            return f'I could not find "{value}". Did you mean {joined}?'
+        return f'I could not find "{value}". Please use a supported NBA team name.'
+    if code == VALIDATION_INVALID_SPECIAL_TEAM:
+        if value is not None:
+            return f'"{value}" is an exhibition team, not a supported NBA franchise.'
+        return "That team is an exhibition team, not a supported NBA franchise."
+    if code == VALIDATION_SAME_TEAM_HEAD_TO_HEAD:
+        return "A head-to-head query needs two different teams."
+    if code == MISSING_REQUIRED_ARGUMENT:
+        if error.field == "team_b":
+            return "Please name the second team for the head-to-head."
+        if error.field in ("team", "team_a"):
+            return "Please tell me which team you mean."
+        return None
+    if code == INVALID_WINDOW:
+        return 'Please use a positive whole number of games, such as "last 5 games".'
+    if code == INVALID_N:
+        return "Please use a positive whole number for the ranking size."
+    if code == INVALID_SEASON_ID:
+        return "Please use one of the supported season identifiers."
+    return None
+
+
+def _message_for_parse_error(error: ParseError) -> Optional[str]:
+    """A specific user-facing headline for an incomplete-parse error, or None for the fallback."""
+    code = error.code
+    if code == MISSING_TEAM:
+        return "Please tell me which team you mean."
+    if code == MISSING_OPPONENT:
+        return "Please name the second team for the head-to-head."
+    if code == UNSUPPORTED_TIME_EXPRESSION:
+        return 'Please use a specific number of games, such as "last 5 games".'
+    if code == MISSING_NUMBER:
+        return "Please include a number for that request."
+    return None
+
+
 def format_parse_failure(
     parse_result: RuleParseResult,
     *,
@@ -350,8 +446,15 @@ def format_parse_failure(
         )
 
     if parse_result.status == PARSE_STATUS_INCOMPLETE:
+        primary = _select_primary_error(parse_result.errors, _PARSE_INCOMPLETE_PRIORITY)
+        headline = None
+        if primary is not None:
+            try:
+                headline = _message_for_parse_error(primary)
+            except Exception:  # noqa: BLE001 - never let message composition break the formatter
+                headline = None
         return AssistantResult.clarification_needed(
-            "I need more information to answer that request.",
+            headline or "I need more information to answer that request.",
             errors,
             query=result_query,
             warnings=warnings,
@@ -406,8 +509,15 @@ def format_validation_failure(
         )
         for warning in validation_result.warnings
     )
+    primary = _select_primary_error(validation_result.errors, _VALIDATION_PRIORITY)
+    headline = None
+    if primary is not None:
+        try:
+            headline = _message_for_validation_error(primary)
+        except Exception:  # noqa: BLE001 - never let message composition break the formatter
+            headline = None
     return AssistantResult.clarification_needed(
-        "I need you to clarify or correct part of that request.",
+        headline or "I need you to clarify or correct part of that request.",
         errors,
         query=_safe_query(query),
         tool_name=tool_name,

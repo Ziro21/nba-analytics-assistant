@@ -63,16 +63,16 @@ The assistant explains why it cannot answer; it never guesses a number.
 
 ```bash
 python -m src.cli "Who is better?"
-# I can only answer supported NBA analytics questions.        (status: unsupported)
+# I can only answer supported NBA analytics questions.                                  (unsupported)
 
 python -m src.cli "How many points do LA average?"
-# I need you to clarify or correct part of that request.      (status: clarification_needed)
+# "LA" is ambiguous. Do you mean Los Angeles Lakers or Los Angeles Clippers?            (clarification_needed)
 
 python -m src.cli "How many points do Celics average?"
-# I need you to clarify or correct part of that request.      (status: clarification_needed)
+# I could not find "Celics". Did you mean Boston Celtics or New Orleans Pelicans?       (clarification_needed)
 
 python -m src.cli "Celtics vs Celtics head to head"
-# I need you to clarify or correct part of that request.      (status: clarification_needed)
+# A head-to-head query needs two different teams.                                       (clarification_needed)
 ```
 
 In `--json` mode these carry a structured issue code in `errors`:
