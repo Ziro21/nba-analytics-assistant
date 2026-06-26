@@ -88,6 +88,30 @@ def test_alias_resolution(value, expected) -> None:
     assert res.canonical_name == expected
 
 
+@pytest.mark.parametrize("value,expected", [
+    ("Boston", "Boston Celtics"),
+    ("miami", "Miami Heat"),
+    ("Denver", "Denver Nuggets"),
+    ("golden state", "Golden State Warriors"),
+    ("brooklyn", "Brooklyn Nets"),
+    ("San Antonio", "San Antonio Spurs"),
+    ("oklahoma city", "Oklahoma City Thunder"),
+    ("philly", "Philadelphia 76ers"),
+    ("washington", "Washington Wizards"),
+])
+def test_unambiguous_city_alias_resolution(value, expected) -> None:
+    res = _resolve(value)
+    assert res.status == TEAM_RESOLVED
+    assert res.canonical_name == expected
+
+
+@pytest.mark.parametrize("value", ["los angeles", "la", "new york", "ny"])
+def test_ambiguous_markets_are_not_city_aliases(value) -> None:
+    # the LA/NY markets must stay ambiguous, never silently aliased to one team.
+    res = _resolve(value)
+    assert res.status == TEAM_AMBIGUOUS
+
+
 # --- Ambiguity --------------------------------------------------------------
 
 @pytest.mark.parametrize("value,candidates", [
