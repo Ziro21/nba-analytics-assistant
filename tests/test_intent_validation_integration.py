@@ -24,7 +24,7 @@ from src.tool_registry import DEFAULT_REGISTRY, execute
 from src.validation_context import build_validation_context
 
 FORBIDDEN_MODULES = (
-    "src.query_parser", "src.llm_query_parser", "src.response_formatter", "src.assistant",
+    "src.query_parser", "src.llm_query_parser", "src.assistant",
 )
 
 

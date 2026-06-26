@@ -26,10 +26,9 @@ from src.rule_parser_types import (
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
-FORBIDDEN_MODULES = (  # not yet built (8B–8D added normalisation/router/catalogue/extractor/parser)
+FORBIDDEN_MODULES = (  # 8B-8D and 9B modules may now exist; these still must not.
     "src.rule_parser_validation_integration",
     "src.llm_query_parser",
-    "src.response_formatter",
     "src.assistant",
 )
 

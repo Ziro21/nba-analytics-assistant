@@ -186,10 +186,10 @@ def test_production_parser_stack_imports_nothing_forbidden() -> None:
 def test_no_orchestration_llm_or_web_modules_exist() -> None:
     for module in (
         "src.rule_parser_validation_integration", "src.parse_validate_execute",
-        "src.llm_query_parser", "src.response_formatter", "src.assistant",
+        "src.llm_query_parser", "src.assistant",
         "src.api", "src.web", "src.database", "src.rag", "src.agent", "src.server",
     ):
-        assert importlib.util.find_spec(module) is None, f"{module} must not exist in Phase 8"
+        assert importlib.util.find_spec(module) is None, f"{module} must not exist yet"
 
 
 def test_all_query_examples_partition() -> None:
