@@ -45,13 +45,14 @@ INVALID_N = "invalid_n"
 INVALID_SEASON_ID = "invalid_season_id"
 INVALID_LOCATION = "invalid_location"
 SAME_TEAM_HEAD_TO_HEAD = "same_team_head_to_head"
+SAME_TEAM_COMPARISON = "same_team_comparison"  # two-team comparison given the same resolved team twice
 
 # Canonical catalogue of the validation error codes defined above.
 ERROR_CODES = (
     UNKNOWN_TOOL, ARGUMENTS_NOT_DICT, MISSING_REQUIRED_ARGUMENT, UNEXPECTED_ARGUMENT,
     INVALID_ARGUMENT_TYPE, INVALID_PARSER_MODE, UNKNOWN_TEAM, AMBIGUOUS_TEAM,
     INVALID_SPECIAL_TEAM, INVALID_WINDOW, INVALID_N, INVALID_SEASON_ID, INVALID_LOCATION,
-    SAME_TEAM_HEAD_TO_HEAD,
+    SAME_TEAM_HEAD_TO_HEAD, SAME_TEAM_COMPARISON,
 )
 
 

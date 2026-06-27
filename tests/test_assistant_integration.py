@@ -172,7 +172,7 @@ def test_typo_team_suggestion_does_not_execute_registry(assistant_dependencies) 
 
 @pytest.mark.parametrize("query", [
     "Who is better?",
-    "Compare Lakers and Celtics",
+    "Compare LA teams",  # routes to comparison but has no clear second team -> parse failure
     "Warriors last few games",
     "What happened last night?",
 ])

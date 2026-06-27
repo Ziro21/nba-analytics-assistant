@@ -70,8 +70,8 @@ def test_registry_matches_direct_tool_call(clean_df, name, direct_call, args) ->
 
 def test_registry_construction_is_data_free() -> None:
     # Building the registry and exporting schemas requires no dataset.
-    assert len(build_default_registry().schemas()) == 7
-    assert len(schemas()) == 7  # default registry was built at import, data-free
+    assert len(build_default_registry().schemas()) == 8
+    assert len(schemas()) == 8  # default registry was built at import, data-free
 
 
 def test_registry_construction_does_not_read_dataset(monkeypatch) -> None:
@@ -79,7 +79,7 @@ def test_registry_construction_does_not_read_dataset(monkeypatch) -> None:
         raise AssertionError("read_csv must not be called during registry construction.")
 
     monkeypatch.setattr(pd, "read_csv", boom)
-    assert len(build_default_registry().schemas()) == 7
+    assert len(build_default_registry().schemas()) == 8
 
 
 def test_imports_are_acyclic() -> None:

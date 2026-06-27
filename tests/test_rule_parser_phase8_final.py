@@ -55,7 +55,8 @@ def test_no_unsupported_example_produces_parsed_intent() -> None:
         assert res.parsed_intent is None
         assert res.errors
         if "compare" in ex.query.lower():
-            assert res.status == "ambiguous"  # generic compare is never head_to_head
+            # the only unsupported compare ("Compare LA teams") is incomplete, never head_to_head
+            assert res.status == "incomplete"
 
 
 # --- C. determinism ---------------------------------------------------------
@@ -102,10 +103,13 @@ def test_vague_time_never_all_games(query) -> None:
 
 
 def test_compare_never_routes_to_h2h() -> None:
+    # explicit comparison routes to compare_team_profiles (or fails safely), never head_to_head.
     for query in ("Compare Lakers and Celtics", "Compare LA teams", "Compare Celtics and Heat"):
         res = parse_rule_query(query)
-        assert res.status in {"ambiguous", "no_parse"}
-        assert res.parsed_intent is None
+        if res.parsed_intent is not None:
+            assert res.parsed_intent.tool_name == "compare_team_profiles"
+        else:
+            assert res.status in {"incomplete", "ambiguous", "no_parse"}
 
 
 # --- F. parser -> validator boundary (validator protects) -------------------

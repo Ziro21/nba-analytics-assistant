@@ -7,7 +7,8 @@ are tested against this single source of truth.
 
 Locked policies captured here as data (detection implemented later):
   - vague time expressions (recent/last few/…) -> unsupported_time_expression, never all-games;
-  - bare "compare A and B" -> ambiguous, never auto head_to_head;
+  - explicit "compare A and B" / "comparison between A and B" -> compare_team_profiles (descriptive
+    two-team comparison); bare "A vs B" stays head_to_head (the "vs" signal is preserved);
   - top_scoring_teams with no number omits ``n`` (downstream tool default); no invented window;
   - team strings are RAW candidates (the validator canonicalises).
 """
@@ -20,7 +21,6 @@ from types import MappingProxyType
 from typing import Any, Optional
 
 from src.rule_parser_types import (
-    AMBIGUOUS_INTENT,
     MISSING_OPPONENT,
     MISSING_TEAM,
     PARSE_ERROR_CODES,
@@ -38,6 +38,7 @@ SUPPORTED_TOOL_NAMES = (
     "head_to_head",
     "team_efficiency_summary",
     "team_advanced_profile",
+    "compare_team_profiles",
 )
 
 
@@ -173,6 +174,35 @@ SUPPORTED_QUERY_EXAMPLES = (
             {"team": "Warriors", "location": "home"}, tags=("location",)),
     _parsed("How are the Celtics performing away over the last 5 games?", "team_advanced_profile",
             {"team": "Celtics", "location": "away", "window": 5}, tags=("location",)),
+    # compare_team_profiles (two-team descriptive comparison; explicit comparison language only).
+    # "Compare A and B" with no metric/h2h signal now routes here (previously ambiguous) — the one
+    # intentional routing change in this phase.
+    _parsed("Compare Lakers and Celtics", "compare_team_profiles",
+            {"team_a": "Lakers", "team_b": "Celtics"}, tags=("compare",),
+            notes="was ambiguous before compare_team_profiles existed"),
+    _parsed("Compare Warriors and Celtics over the last 10 games.", "compare_team_profiles",
+            {"team_a": "Warriors", "team_b": "Celtics", "window": 10}, tags=("compare",)),
+    _parsed("How do Warriors and Celtics compare over the last 10 games?", "compare_team_profiles",
+            {"team_a": "Warriors", "team_b": "Celtics", "window": 10}, tags=("compare",)),
+    _parsed("Give me a comparison between Lakers and Bucks.", "compare_team_profiles",
+            {"team_a": "Lakers", "team_b": "Bucks"}, tags=("compare",)),
+    _parsed("Give me a profile comparison between Lakers and Bucks.", "compare_team_profiles",
+            {"team_a": "Lakers", "team_b": "Bucks"}, tags=("compare",)),
+    _parsed("Compare Warriors with Celtics last 10.", "compare_team_profiles",
+            {"team_a": "Warriors", "team_b": "Celtics", "window": 10}, tags=("compare",),
+            notes="'with' connector; bare 'last 10' reads as a 10-game window"),
+    _parsed("Compare Lakers and Knicks at home.", "compare_team_profiles",
+            {"team_a": "Lakers", "team_b": "Knicks", "location": "home"}, tags=("compare", "location")),
+    _parsed("Compare the Celtics and Heat away over the last 5 games.", "compare_team_profiles",
+            {"team_a": "Celtics", "team_b": "Heat", "location": "away", "window": 5},
+            tags=("compare", "location")),
+    _parsed("Compare the home profiles of Warriors and Celtics over the last 10 games.",
+            "compare_team_profiles",
+            {"team_a": "Warriors", "team_b": "Celtics", "location": "home", "window": 10},
+            tags=("compare", "location")),
+    _parsed("Compare Warriors and Celtics on the road.", "compare_team_profiles",
+            {"team_a": "Warriors", "team_b": "Celtics", "location": "away"},
+            tags=("compare", "location")),
 )
 
 
@@ -185,9 +215,11 @@ UNSUPPORTED_QUERY_EXAMPLES = (
     _failed("Tell me about Boston", "no_parse", (UNSUPPORTED_QUERY,)),
     _failed("What happened last night?", "no_parse", (UNSUPPORTED_QUERY,)),
     _failed("Top teams", "no_parse", (UNSUPPORTED_QUERY,), notes="no 'scoring' -> not a ranking"),
-    _failed("Compare Lakers and Celtics", "ambiguous", (AMBIGUOUS_INTENT,),
-            tags=("compare",), notes="no h2h signal/metric -> ambiguous, not head_to_head"),
-    _failed("Compare LA teams", "ambiguous", (AMBIGUOUS_INTENT,), tags=("compare",)),
+    # "Compare Lakers and Celtics" is now SUPPORTED (compare_team_profiles) — see the parsed
+    # examples above. "Compare LA teams" has no clear second team, so it fails as incomplete (the
+    # ambiguity of "LA" is never reached because the second team is missing).
+    _failed("Compare LA teams", "incomplete", (MISSING_OPPONENT,), tags=("compare",),
+            notes="compare verb routes to compare_team_profiles; no clear second team -> incomplete"),
     _failed("Warriors recent form", "incomplete", (UNSUPPORTED_TIME_EXPRESSION,), tags=("vague_time",)),
     _failed("Warriors last few games", "incomplete", (UNSUPPORTED_TIME_EXPRESSION,), tags=("vague_time",)),
     _failed("Show me recent Warriors games", "incomplete", (UNSUPPORTED_TIME_EXPRESSION,), tags=("vague_time",)),

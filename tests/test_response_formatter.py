@@ -216,6 +216,7 @@ def test_supported_tool_catalogue_is_exact() -> None:
         "head_to_head",
         "team_efficiency_summary",
         "team_advanced_profile",
+        "compare_team_profiles",
     }
 
 

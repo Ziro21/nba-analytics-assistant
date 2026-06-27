@@ -40,11 +40,11 @@ NO_ROUTE_QUERIES = {
     "Warriors last few games",      # no metric keyword
     "Show me recent Warriors games",  # no metric keyword
 }
-AMBIGUOUS_QUERIES = {
-    "Compare Lakers and Celtics",
-    "Compare LA teams",
-}
-# Clear intent now, but fail later in 8C/8D (vague time has no window; h2h missing an operand).
+# The router no longer emits an ambiguous status: explicit "compare A and B" now routes to
+# compare_team_profiles (see ROUTES_BUT_FAILS_LATER / the supported catalogue), and bare "vs" stays
+# head_to_head. Kept (empty) so the partition union below stays explicit.
+AMBIGUOUS_QUERIES: set[str] = set()
+# Clear intent now, but fail later in 8C/8D (vague time has no window; h2h/comparison missing a team).
 ROUTES_BUT_FAILS_LATER = {
     "Warriors average points lately": "team_average_points",
     "GSW points allowed recently": "average_points_allowed",
@@ -52,6 +52,7 @@ ROUTES_BUT_FAILS_LATER = {
     "Celtics efficiency latest games": "team_efficiency_summary",
     "Celtics vs": "head_to_head",
     "vs Heat": "head_to_head",
+    "Compare LA teams": "compare_team_profiles",  # routes, then fails (no clear second team)
 }
 
 
@@ -93,7 +94,7 @@ def test_invalid_status_and_missing_pieces_rejected() -> None:
 
 def test_routable_tool_names_match_catalogue() -> None:
     assert set(ROUTABLE_TOOL_NAMES) == set(SUPPORTED_TOOL_NAMES)
-    assert len(ROUTABLE_TOOL_NAMES) == 7
+    assert len(ROUTABLE_TOOL_NAMES) == 8
 
 
 def test_route_result_to_dict_mutation_does_not_affect_object() -> None:
@@ -144,11 +145,17 @@ def test_no_route_queries(query) -> None:
     assert res.tool_name is None
 
 
-@pytest.mark.parametrize("query", sorted(AMBIGUOUS_QUERIES))
-def test_compare_queries_are_ambiguous_not_h2h(query) -> None:
+@pytest.mark.parametrize("query", [
+    "Compare Lakers and Celtics",
+    "Compare Warriors with Celtics last 10.",
+    "How do Warriors and Celtics compare?",
+    "Give me a comparison between Lakers and Bucks.",
+    "Give me a profile comparison between Lakers and Bucks.",
+])
+def test_explicit_compare_routes_to_comparison_not_h2h(query) -> None:
     res = route_intent(query)
-    assert res.status == ROUTE_STATUS_AMBIGUOUS
-    assert res.tool_name is None  # explicitly NOT head_to_head
+    assert res.status == ROUTE_STATUS_ROUTED
+    assert res.tool_name == "compare_team_profiles"  # explicit comparison, never head_to_head
 
 
 @pytest.mark.parametrize("query,tool", sorted(ROUTES_BUT_FAILS_LATER.items()))
@@ -195,8 +202,8 @@ def test_compare_with_metric_policy_is_explicit() -> None:
 @pytest.mark.parametrize("query", ["Compare Lakers and Celtics", "Compare LA teams", "Compare Celtics and Heat"])
 def test_compare_never_routes_to_h2h(query) -> None:
     res = route_intent(query)
-    assert res.tool_name != "head_to_head"
-    assert res.status in {ROUTE_STATUS_AMBIGUOUS, ROUTE_STATUS_NO_ROUTE}
+    assert res.tool_name != "head_to_head"  # comparison language must never become head-to-head
+    assert res.tool_name == "compare_team_profiles"
 
 
 @pytest.mark.parametrize("query", ["Who is better?", "Tell me about Boston"])

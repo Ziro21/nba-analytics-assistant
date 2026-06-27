@@ -25,6 +25,7 @@ from src.intent_types import (
     INVALID_WINDOW,
     MISSING_REQUIRED_ARGUMENT,
     PARSER_MODES,
+    SAME_TEAM_COMPARISON,
     SAME_TEAM_HEAD_TO_HEAD,
     SEVERITY_WARNING,
     UNEXPECTED_ARGUMENT,
@@ -46,6 +47,13 @@ from src.validation_context import ValidationContext
 
 TEAM_ARG_NAMES = frozenset({"team", "team_a", "team_b"})
 CANONICALISED_TEAM = "canonicalised_team"  # non-blocking transparency warning code
+
+# Two-team tools that require team_a and team_b to resolve to DIFFERENT franchises, each with its
+# own error code so the failure reads correctly for that tool.
+SAME_TEAM_CODE_BY_TOOL = {
+    "head_to_head": SAME_TEAM_HEAD_TO_HEAD,
+    "compare_team_profiles": SAME_TEAM_COMPARISON,
+}
 
 
 def _type_ok(value: object, type_str: str) -> bool:
@@ -208,11 +216,12 @@ def validate_intent(intent: ParsedIntent, *, context: ValidationContext) -> Vali
                 field="location", value=location, suggestions=("home", "away"),
             ))
 
-    # Head-to-head same-team check — only when both teams resolved (no cascade).
-    if tool_name == "head_to_head" and "team_a" in resolved_teams and "team_b" in resolved_teams:
+    # Two-team same-team check (head_to_head / compare_team_profiles) — only when both teams
+    # resolved (no cascade), using the per-tool error code.
+    if tool_name in SAME_TEAM_CODE_BY_TOOL and "team_a" in resolved_teams and "team_b" in resolved_teams:
         if resolved_teams["team_a"] == resolved_teams["team_b"]:
             errors.append(ValidationError(
-                code=SAME_TEAM_HEAD_TO_HEAD,
+                code=SAME_TEAM_CODE_BY_TOOL[tool_name],
                 message="team_a and team_b must be two different teams.",
                 field="team_b", value=args["team_b"],
             ))

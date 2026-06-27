@@ -25,6 +25,7 @@ from src.assistant_types import (
     MISSING_INFORMATION,
     NO_DATA,
     PARSE_FAILED,
+    SAME_TEAM_COMPARISON,
     SAME_TEAM_HEAD_TO_HEAD,
     UNKNOWN_TEAM,
     UNSUPPORTED_QUERY,
@@ -44,12 +45,14 @@ EXPECTED_STATUS_ORDER = (
 EXPECTED_ISSUE_CODES = {
     "parse_failed", "unsupported_query", "ambiguous_intent", "missing_information",
     "validation_failed", "ambiguous_team", "unknown_team", "invalid_special_team",
-    "same_team_head_to_head", "no_data", "execution_failed", "internal_error",
+    "same_team_head_to_head", "same_team_comparison", "no_data", "execution_failed",
+    "internal_error",
 }
 EXPECTED_ISSUE_CODE_ORDER = (
     "parse_failed", "unsupported_query", "ambiguous_intent", "missing_information",
     "validation_failed", "ambiguous_team", "unknown_team", "invalid_special_team",
-    "same_team_head_to_head", "no_data", "execution_failed", "internal_error",
+    "same_team_head_to_head", "same_team_comparison", "no_data", "execution_failed",
+    "internal_error",
 )
 
 
@@ -76,7 +79,7 @@ def test_issue_code_constants() -> None:
     constants = (
         PARSE_FAILED, UNSUPPORTED_QUERY, AMBIGUOUS_INTENT, MISSING_INFORMATION,
         VALIDATION_FAILED, AMBIGUOUS_TEAM, UNKNOWN_TEAM, INVALID_SPECIAL_TEAM,
-        SAME_TEAM_HEAD_TO_HEAD, NO_DATA, EXECUTION_FAILED, INTERNAL_ERROR,
+        SAME_TEAM_HEAD_TO_HEAD, SAME_TEAM_COMPARISON, NO_DATA, EXECUTION_FAILED, INTERNAL_ERROR,
     )
     assert set(constants) == EXPECTED_ISSUE_CODES
     assert set(ASSISTANT_ISSUE_CODES) == EXPECTED_ISSUE_CODES

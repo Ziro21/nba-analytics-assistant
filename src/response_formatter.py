@@ -21,6 +21,7 @@ from src.assistant_types import (
     MISSING_INFORMATION,
     NO_DATA,
     PARSE_FAILED,
+    SAME_TEAM_COMPARISON,
     SAME_TEAM_HEAD_TO_HEAD,
     UNKNOWN_TEAM,
     UNSUPPORTED_QUERY,
@@ -36,6 +37,7 @@ from src.intent_types import (
     INVALID_SPECIAL_TEAM as VALIDATION_INVALID_SPECIAL_TEAM,
     INVALID_WINDOW,
     MISSING_REQUIRED_ARGUMENT,
+    SAME_TEAM_COMPARISON as VALIDATION_SAME_TEAM_COMPARISON,
     SAME_TEAM_HEAD_TO_HEAD as VALIDATION_SAME_TEAM_HEAD_TO_HEAD,
     UNEXPECTED_ARGUMENT,
     UNKNOWN_TEAM as VALIDATION_UNKNOWN_TEAM,
@@ -73,6 +75,7 @@ SUPPORTED_TOOL_NAMES = frozenset({
     "head_to_head",
     "team_efficiency_summary",
     "team_advanced_profile",
+    "compare_team_profiles",
 })
 
 
@@ -156,6 +159,73 @@ def _execution_error(tool_name: str, message: str, *, query: str,
     )
 
 
+def _signed_net(value: object) -> str:
+    """Net rating with an explicit sign for readability (e.g. ``+5.8`` / ``-3.6`` / ``+0.0``)."""
+    number = _format_number(value, min_decimal=True)
+    if isinstance(value, (int, float)) and not isinstance(value, bool) and value >= 0:
+        return f"+{number}"
+    return number
+
+
+def _comparison_side(profile: Mapping[str, object], *, with_games: bool) -> str:
+    """One team's clause: record, scoring, and net rating (with its game count when samples differ)."""
+    points_for = _format_number(profile["average_points_for"], min_decimal=True)
+    points_against = _format_number(profile["average_points_against"], min_decimal=True)
+    games = profile["games"]
+    games_note = f" over {games} {_plural(games, 'game', 'games')}" if with_games else ""
+    return (
+        f"{profile['team']} went {profile['record']}{games_note} with {points_for} points scored "
+        f"per game, {points_against} allowed, and a {_signed_net(profile['average_net_rating'])} "
+        "net rating"
+    )
+
+
+def _comparison_lead(meta: Mapping[str, object], *, asymmetric: bool) -> str:
+    """The shared sample lead-in. When samples differ, stays generic — each side names its own count."""
+    venue = meta.get("location")
+    venue = venue if venue in ("home", "away") else None
+    window = meta.get("window_requested")
+    if window is not None and not asymmetric:
+        suffix = f"the last {window} {venue + ' ' if venue else ''}{_plural(window, 'game', 'games')}"
+        return f"At home over {suffix}" if venue == "home" else (
+            f"Away over {suffix}" if venue == "away" else f"Over {suffix}")
+    if window is not None:  # asymmetric sample sizes
+        return {"home": "Over their recent home games", "away": "Over their recent away games",
+                None: "Over their selected samples"}[venue]
+    return {"home": "Across all available home games", "away": "Across all available away games",
+            None: "Across all available games"}[venue]
+
+
+def _comparison_verdict(comparison: Mapping[str, object], meta: Mapping[str, object]) -> str:
+    """The descriptive (never predictive) headline verdict, neutral on a near-tie."""
+    stronger = comparison.get("stronger_profile_team")
+    if not stronger:
+        return ("The two teams had similar overall profiles over this selected sample, with only a "
+                "small net-rating difference.")
+    venue = meta.get("location")
+    venue_word = f"{venue} " if venue in ("home", "away") else ""
+    return (f"{stronger} had the stronger {venue_word}profile over this selected sample based on "
+            "net rating.")
+
+
+def _format_comparison(result: Mapping[str, object], meta: Mapping[str, object]) -> str:
+    """Human-readable two-team comparison: a sample lead, each team's clause, then the verdict."""
+    profile_a = result["team_a_profile"]
+    profile_b = result["team_b_profile"]
+    if not isinstance(profile_a, Mapping) or not isinstance(profile_b, Mapping):
+        raise TypeError("compare_team_profiles result must carry two profile mappings")
+    comparison = result["comparison"]
+    if not isinstance(comparison, Mapping):
+        raise TypeError("compare_team_profiles result must carry a comparison mapping")
+    asymmetric = profile_a["games"] != profile_b["games"]
+    lead = _comparison_lead(meta, asymmetric=asymmetric)
+    return (
+        f"{lead}, {_comparison_side(profile_a, with_games=asymmetric)}. "
+        f"{_comparison_side(profile_b, with_games=asymmetric)}. "
+        f"{_comparison_verdict(comparison, meta)}"
+    )
+
+
 def _tool_message(tool_name: str, result: Mapping[str, object],
                   meta: Mapping[str, object]) -> str:
     if tool_name == "team_average_points":
@@ -228,6 +298,9 @@ def _tool_message(tool_name: str, result: Mapping[str, object],
             f"{team} {_window_phrase(meta)}: {record} record, {points_for} points scored per game, "
             f"{points_against} points allowed, {ortg} ORTG, {drtg} DRTG, and {net} net rating."
         )
+
+    if tool_name == "compare_team_profiles":
+        return _format_comparison(result, meta)
 
     raise KeyError(f"unsupported tool {tool_name!r}")
 
@@ -368,8 +441,8 @@ def _select_primary_error(errors: Sequence, priority: Sequence[str]):
 
 _VALIDATION_PRIORITY = (
     VALIDATION_AMBIGUOUS_TEAM, VALIDATION_UNKNOWN_TEAM, VALIDATION_INVALID_SPECIAL_TEAM,
-    VALIDATION_SAME_TEAM_HEAD_TO_HEAD, MISSING_REQUIRED_ARGUMENT, INVALID_WINDOW,
-    INVALID_N, INVALID_SEASON_ID, VALIDATION_INVALID_LOCATION, UNEXPECTED_ARGUMENT,
+    VALIDATION_SAME_TEAM_HEAD_TO_HEAD, VALIDATION_SAME_TEAM_COMPARISON, MISSING_REQUIRED_ARGUMENT,
+    INVALID_WINDOW, INVALID_N, INVALID_SEASON_ID, VALIDATION_INVALID_LOCATION, UNEXPECTED_ARGUMENT,
 )
 _PARSE_INCOMPLETE_PRIORITY = (
     MISSING_TEAM, MISSING_OPPONENT, UNSUPPORTED_TIME_EXPRESSION, MISSING_NUMBER,
@@ -407,9 +480,11 @@ def _message_for_validation_error(error: ValidationError) -> Optional[str]:
         return "That team is an exhibition team, not a supported NBA franchise."
     if code == VALIDATION_SAME_TEAM_HEAD_TO_HEAD:
         return "A head-to-head query needs two different teams."
+    if code == VALIDATION_SAME_TEAM_COMPARISON:
+        return "A comparison needs two different teams."
     if code == MISSING_REQUIRED_ARGUMENT:
         if error.field == "team_b":
-            return "Please name the second team for the head-to-head."
+            return "Please name the second team."
         if error.field in ("team", "team_a"):
             return "Please tell me which team you mean."
         return None
@@ -422,8 +497,9 @@ def _message_for_validation_error(error: ValidationError) -> Optional[str]:
     if code == VALIDATION_INVALID_LOCATION:
         return 'Please use "home" or "away" for the location.'
     if code == UNEXPECTED_ARGUMENT and error.field == "location":
-        return ("Home/away splits are only available for single-team queries — averages, points "
-                "allowed, record, efficiency, and advanced profile.")
+        return ("Home/away splits are available for single-team queries (averages, points allowed, "
+                "record, efficiency, advanced profile) and team comparisons, but not for "
+                "head-to-head or top scoring.")
     return None
 
 
@@ -433,7 +509,7 @@ def _message_for_parse_error(error: ParseError) -> Optional[str]:
     if code == MISSING_TEAM:
         return "Please tell me which team you mean."
     if code == MISSING_OPPONENT:
-        return "Please name the second team for the head-to-head."
+        return "Please name the second team."
     if code == UNSUPPORTED_TIME_EXPRESSION:
         return 'Please use a specific number of games, such as "last 5 games".'
     if code == MISSING_NUMBER:
@@ -462,7 +538,7 @@ def format_parse_failure(
         return AssistantResult.unsupported(
             "I can only answer supported NBA analytics questions, such as team averages, "
             "points allowed, records, top scoring teams, head-to-head records, efficiency "
-            "summaries, and advanced team profiles.",
+            "summaries, advanced team profiles, and team-to-team comparisons.",
             errors,
             query=result_query,
             warnings=warnings,
@@ -502,6 +578,7 @@ def _assistant_issue_from_validation_error(error: ValidationError) -> AssistantI
         VALIDATION_UNKNOWN_TEAM: UNKNOWN_TEAM,
         VALIDATION_INVALID_SPECIAL_TEAM: INVALID_SPECIAL_TEAM,
         VALIDATION_SAME_TEAM_HEAD_TO_HEAD: SAME_TEAM_HEAD_TO_HEAD,
+        VALIDATION_SAME_TEAM_COMPARISON: SAME_TEAM_COMPARISON,
         MISSING_REQUIRED_ARGUMENT: MISSING_INFORMATION,
         INVALID_WINDOW: MISSING_INFORMATION,
         INVALID_N: MISSING_INFORMATION,

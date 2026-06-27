@@ -38,6 +38,7 @@ AMBIGUOUS_TEAM = "ambiguous_team"
 UNKNOWN_TEAM = "unknown_team"
 INVALID_SPECIAL_TEAM = "invalid_special_team"
 SAME_TEAM_HEAD_TO_HEAD = "same_team_head_to_head"
+SAME_TEAM_COMPARISON = "same_team_comparison"
 NO_DATA = "no_data"
 EXECUTION_FAILED = "execution_failed"
 INTERNAL_ERROR = "internal_error"
@@ -52,6 +53,7 @@ ASSISTANT_ISSUE_CODES = (
     UNKNOWN_TEAM,
     INVALID_SPECIAL_TEAM,
     SAME_TEAM_HEAD_TO_HEAD,
+    SAME_TEAM_COMPARISON,
     NO_DATA,
     EXECUTION_FAILED,
     INTERNAL_ERROR,

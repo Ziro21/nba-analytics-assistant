@@ -23,7 +23,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 EXPECTED_TOOL_ORDER = (
     "team_average_points", "average_points_allowed", "team_record",
     "top_scoring_teams", "head_to_head", "team_efficiency_summary",
-    "team_advanced_profile",
+    "team_advanced_profile", "compare_team_profiles",
 )
 DUMMY_NAMES = ("dummy_team_tool", "dummy_noarg_tool", "dummy_raising_tool")
 FORBIDDEN_MODULES = (
@@ -55,7 +55,7 @@ def test_context_does_not_store_dataframe(context) -> None:
 
 def test_registered_tools(context) -> None:
     assert context.registered_tools == EXPECTED_TOOL_ORDER
-    assert len(context.tool_schemas) == 7
+    assert len(context.tool_schemas) == 8
     for name in DUMMY_NAMES:
         assert name not in context.registered_tools
 

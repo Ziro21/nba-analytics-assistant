@@ -40,12 +40,16 @@ SINGLE_TEAM_TOOLS = frozenset(
     {"team_average_points", "average_points_allowed", "team_record", "team_efficiency_summary",
      "team_advanced_profile"}
 )
-WINDOW_TOOLS = SINGLE_TEAM_TOOLS | {"head_to_head"}
 H2H_TOOL = "head_to_head"
+COMPARE_TOOL = "compare_team_profiles"
 RANKING_TOOL = "top_scoring_teams"
+# Tools that accept an optional last-N window (the comparison applies it per team).
+WINDOW_TOOLS = SINGLE_TEAM_TOOLS | {H2H_TOOL, COMPARE_TOOL}
 
-# Explicit numbered time windows only (never invent a window).
-_WINDOW_RE = re.compile(r"\b(?:last|past|previous)\s+(\d+)\s+(?:games?|meetings?)\b")
+# Explicit numbered time windows only (never invent a window). The unit noun ("games"/"meetings") is
+# optional, so "last 10" reads as a 10-game window — a bare numbered "last N" is never silently
+# dropped to all-games. A vague "last few"/"recent" (no number) is still an unsupported time phrase.
+_WINDOW_RE = re.compile(r"\b(?:last|past|previous)\s+(\d+)(?:\s+(?:games?|meetings?))?\b")
 # Top-N ranking number (top_scoring_teams only).
 _TOP_N_RE = re.compile(r"\btop\s+(\d+)\b")
 # Opaque dataset season id only ("season 26" / "season id 26"); never NBA season labels.
@@ -60,6 +64,10 @@ _VAGUE_TIME_EXPRESSIONS = (
 _H2H_SPLIT_RE = re.compile(
     r"\b(?:head[\s\-]+to[\s\-]+head|versus|vs|against|h2h|matchup)\b", re.IGNORECASE
 )
+
+# Two-team comparison connectors ("compare A and B", "compare A with B"). Bare "vs"/"versus" is NOT
+# a comparison connector — it stays a head-to-head signal, so "compare A vs B" routes to head_to_head.
+_COMPARE_SPLIT_RE = re.compile(r"\b(?:and|with)\b", re.IGNORECASE)
 
 # Words that can never be a team candidate (stopwords + temporal + metric/intent vocabulary).
 _BLOCKED_TOKENS = frozenset({
@@ -82,8 +90,8 @@ _BLOCKED_TOKENS = frozenset({
     "teams", "offence", "offences", "offense", "offenses", "compare", "better", "summary",
     "done", "doing", "happened",
     # broad-profile / comparison vocabulary (so these never leak as a typo team candidate)
-    "advanced", "profile", "performing", "performance", "summarise", "summarize",
-    "defense", "defenses", "defence", "defences",
+    "advanced", "profile", "profiles", "performing", "performance", "summarise", "summarize",
+    "defense", "defenses", "defence", "defences", "comparison", "comparisons", "between",
     # venue / location context (extracted separately as the location slot)
     "home", "away", "road", "neutral", "site", "court", "venue",
     # special/exhibition team components: full phrases ("Team World") are matched by the
@@ -316,6 +324,43 @@ def _extract_h2h(raw_query: str, normalised: str):
     return arguments, errors, tuple(surfaces)
 
 
+def _extract_compare(raw_query: str, normalised: str):
+    """Extract team_a/team_b around the first comparison connector ('and'/'with').
+
+    Mirrors :func:`_extract_h2h` but splits on the comparison connector, so each side gets the
+    structural fallback (a typo like 'Celics' still reaches the validator for a suggestion). With no
+    connector, falls back to the first team mention boundary; a single team then fails as incomplete.
+    """
+    arguments: dict[str, object] = {}
+    errors: list[ParseError] = []
+    surfaces: list[str] = []
+
+    split = _COMPARE_SPLIT_RE.search(raw_query)
+    if split:
+        left, right = raw_query[: split.start()], raw_query[split.end():]
+    else:
+        mentions = _find_team_mentions(raw_query)
+        left = raw_query[: mentions[0][1]] if mentions else raw_query
+        right = raw_query[mentions[0][1]:] if mentions else ""
+
+    team_a, surf_a = _extract_one_team(left)
+    team_b, surf_b = _extract_one_team(right)
+    surfaces.extend(surf_a)
+    surfaces.extend(surf_b)
+
+    if team_a is not None:
+        arguments["team_a"] = team_a
+    else:
+        errors.append(ParseError(MISSING_TEAM, "No first team found for the comparison.",
+                                 field="team_a"))
+    if team_b is not None:
+        arguments["team_b"] = team_b
+    else:
+        errors.append(ParseError(MISSING_OPPONENT, "No second team found for the comparison.",
+                                 field="team_b"))
+    return arguments, errors, tuple(surfaces)
+
+
 # --- public API -------------------------------------------------------------
 
 def extract_slots(query: str, *, tool_name: str) -> SlotExtractionResult:
@@ -369,6 +414,10 @@ def extract_slots(query: str, *, tool_name: str) -> SlotExtractionResult:
     # Teams.
     if tool_name == H2H_TOOL:
         team_args, team_errors, surfaces = _extract_h2h(query, normalised)
+        arguments.update(team_args)
+        errors.extend(team_errors)
+    elif tool_name == COMPARE_TOOL:
+        team_args, team_errors, surfaces = _extract_compare(query, normalised)
         arguments.update(team_args)
         errors.extend(team_errors)
     else:  # single-team tools

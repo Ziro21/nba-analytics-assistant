@@ -51,10 +51,32 @@ last 10 games`, `compare the Warriors offense and defense over the last 5 games`
 auto-enriched with this extra context.
 
 **Home/away splits.** The five single-team families (average points, points allowed, record,
-efficiency, advanced profile) accept an optional `home`/`away` filter (`at home`, `on the road` also
-work); with a window, `last N` then means the last N home/away games. `top scoring teams` and
-`head-to-head` do not support location splits — those queries fail safely with a clear message. This
-stays offline and deterministic — no live data, no betting forecasts, and no UI.
+efficiency, advanced profile) — and the two-team comparison — accept an optional `home`/`away` filter
+(`at home`, `on the road` also work); with a window, `last N` then means the last N home/away games
+(applied per team for a comparison). `top scoring teams` and `head-to-head` do not support location
+splits — those queries fail safely with a clear message. This stays offline and deterministic — no
+live data, no betting forecasts, and no UI.
+
+**Two-team comparison.** A descriptive side-by-side comparison of two teams over the same sample
+type. Phrase it with explicit comparison language — `compare X and Y`, `how do X and Y compare`,
+`comparison between X and Y`:
+
+```bash
+python -m src.cli "Compare Warriors and Celtics over the last 10 games."
+# Over the last 10 games, Golden State Warriors went 4-6 with 110.9 points scored per game, 114.7
+# allowed, and a -3.59 net rating. Boston Celtics went 7-3 with 108.5 points scored per game, 100.7
+# allowed, and a +5.05 net rating. Boston Celtics had the stronger profile over this selected sample
+# based on net rating.
+
+python -m src.cli "Compare Lakers and Knicks at home."
+# Across all available home games, Los Angeles Lakers ... New York Knicks ... (per-team home games).
+```
+
+It is **descriptive, not predictive**: it compares net rating, record, scoring, and margin over the
+*selected sample* and never claims one team will win or is "better overall". When the net-rating gap
+is very small the verdict stays neutral. Comparison is distinct from **head-to-head** (which reports
+the games two teams played against each other): bare `X vs Y` keeps its existing head-to-head
+meaning, and `who is better` / `who will win` / betting questions remain unsupported.
 
 ## JSON output
 
@@ -86,8 +108,8 @@ The assistant explains why it cannot answer; it never guesses a number.
 ```bash
 python -m src.cli "Who is better?"
 # I can only answer supported NBA analytics questions, such as team averages, points allowed,
-# records, top scoring teams, head-to-head records, efficiency summaries, and advanced team
-# profiles.  (unsupported)
+# records, top scoring teams, head-to-head records, efficiency summaries, advanced team profiles,
+# and team-to-team comparisons.  (unsupported)
 
 python -m src.cli "How many points do LA average?"
 # "LA" is ambiguous. Do you mean Los Angeles Lakers or Los Angeles Clippers?            (clarification_needed)
@@ -98,6 +120,9 @@ python -m src.cli "How many points do Celics average?"
 
 python -m src.cli "Celtics vs Celtics head to head"
 # A head-to-head query needs two different teams.                                       (clarification_needed)
+
+python -m src.cli "Compare Celtics and Celtics."
+# A comparison needs two different teams.                                               (clarification_needed)
 ```
 
 In `--json` mode these carry a structured issue code in `errors`:
@@ -108,6 +133,7 @@ In `--json` mode these carry a structured issue code in `errors`:
 | `How many points do LA average?` | `clarification_needed` | `ambiguous_team` |
 | `How many points do Celics average?` | `clarification_needed` | `unknown_team` |
 | `Celtics vs Celtics head to head` | `clarification_needed` | `same_team_head_to_head` |
+| `Compare Celtics and Celtics.` | `clarification_needed` | `same_team_comparison` |
 
 `LA` is ambiguous (Lakers or Clippers), `Celics` is an unrecognised spelling, and a team cannot
 play a head-to-head against itself — each is reported precisely rather than guessed.

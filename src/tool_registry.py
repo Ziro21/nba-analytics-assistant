@@ -27,6 +27,7 @@ from src.config import DEFAULT_TOP_N
 from src.tool_results import ToolResult, error_result
 from src.tools import (
     average_points_allowed,
+    compare_team_profiles,
     head_to_head,
     team_advanced_profile,
     team_average_points,
@@ -304,6 +305,23 @@ def build_default_registry() -> ToolRegistry:
         description="Broad performance profile for a team: record, points scored and allowed, and pace-adjusted ratings over all available games or the last N games.",
         parameters=_team_window_params(),
         function=team_advanced_profile,
+    ))
+    registry.register(ToolSpec(
+        name="compare_team_profiles",
+        description="Descriptive side-by-side profile comparison of two teams (record, scoring, and pace-adjusted ratings) over the same sample type. Descriptive only, not a prediction.",
+        parameters=(
+            ToolParameter(name="team_a", type="str", required=True,
+                          description="Canonical name of the first team to compare."),
+            ToolParameter(name="team_b", type="str", required=True,
+                          description="Canonical name of the second team to compare."),
+            ToolParameter(name="window", type="int|null", required=False,
+                          description="Optional recent-game window applied per team. If omitted, all available games are used.",
+                          default=None),
+            ToolParameter(name="location", type="str|null", required=False,
+                          description="Optional venue split: 'home' or 'away', applied per team before the window. If omitted, all games are used.",
+                          default=None),
+        ),
+        function=compare_team_profiles,
     ))
     return registry
 

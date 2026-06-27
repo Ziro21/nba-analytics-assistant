@@ -16,7 +16,6 @@ from dataclasses import dataclass
 from typing import Any, Optional
 
 from src.rule_parser_types import (
-    AMBIGUOUS_INTENT,
     EMPTY_QUERY,
     UNSUPPORTED_QUERY,
     ParseError,
@@ -33,6 +32,7 @@ ROUTABLE_TOOL_NAMES = (
     "head_to_head",
     "team_efficiency_summary",
     "team_advanced_profile",
+    "compare_team_profiles",
 )
 
 ROUTE_STATUS_ROUTED = "routed"
@@ -72,8 +72,17 @@ PROFILE_SIGNALS = (
     "offense and defense", "offence and defence",
 )
 
-# Generic comparison keyword: ambiguous unless a metric/h2h/profile signal is also present.
-COMPARE_SIGNAL = "compare"
+# Two-team descriptive comparison (compare_team_profiles).
+#   - The "comparison" NOUN is checked BEFORE the profile route so "profile comparison" is not
+#     captured by the "profile" signal.
+#   - The "compare" VERB is the terminal route (after every metric/profile signal) so single-team
+#     "compare the Warriors record/offense and defense" still route to their existing tools.
+# Bare "vs" stays a head-to-head signal (handled first), so "compare X vs Y" routes to head_to_head;
+# the recommended comparison phrasing is "compare X and Y". Two-team resolution is the slot/validator's
+# job — the router never counts teams.
+COMPARISON_NOUN_SIGNALS = ("comparison",)
+COMPARE_VERB_SIGNAL = "compare"
+COMPARE_TOOL = "compare_team_profiles"
 
 
 @dataclass(frozen=True)
@@ -180,6 +189,13 @@ def route_intent(query: str) -> IntentRouteResult:
     if _present(padded, "against") and not _matches(padded, DEFENSIVE_AGAINST_SIGNALS):
         return _routed("head_to_head", ("against",))
 
+    # 1b. compare_team_profiles — the explicit "comparison" NOUN (e.g. "profile comparison between
+    #     A and B"). Checked before the profile route so "profile comparison" is not eaten by the
+    #     "profile" signal; checked after head_to_head so an explicit matchup still wins.
+    comparison_noun = _matches(padded, COMPARISON_NOUN_SIGNALS)
+    if comparison_noun:
+        return _routed(COMPARE_TOOL, comparison_noun)
+
     # 2. average_points_allowed — points conceded language beats generic average points.
     allowed = _matches(padded, ALLOWED_SIGNALS)
     if allowed:
@@ -212,18 +228,13 @@ def route_intent(query: str) -> IntentRouteResult:
     if profile:
         return _routed("team_advanced_profile", profile)
 
-    # Generic comparison with no metric/h2h signal is ambiguous, not a guessed head_to_head.
-    # Note: "compare A and B <metric>" (e.g. "...record") routes by the metric above — 8B cannot
-    # see the two teams; Phase 8C must reject two teams supplied to a single-team tool.
-    if _present(padded, COMPARE_SIGNAL):
-        return IntentRouteResult.ambiguous(
-            (ParseError(
-                AMBIGUOUS_INTENT,
-                "Comparison is ambiguous; specify a metric (points/record/efficiency) "
-                "or a head-to-head signal.",
-            ),),
-            raw_query=query, normalised_query=normalised,
-        )
+    # 8. compare_team_profiles — the explicit "compare" VERB with no metric/h2h/profile signal
+    #    (e.g. "compare A and B", "how do A and B compare"). Checked LAST among routes so single-team
+    #    "compare the Warriors record/offense and defense" route to their existing tools above, and
+    #    "compare A vs B" already routed to head_to_head (bare "vs" preserved). Two-team resolution is
+    #    the slot/validator's job; a single-team comparison fails safely downstream.
+    if _present(padded, COMPARE_VERB_SIGNAL):
+        return _routed(COMPARE_TOOL, (COMPARE_VERB_SIGNAL,))
 
     return IntentRouteResult.no_route(
         (ParseError(UNSUPPORTED_QUERY, "The query is outside the supported tool catalogue."),),

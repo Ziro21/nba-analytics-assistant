@@ -15,7 +15,7 @@ It **is**: a deterministic pipeline — rule parser → validator → tool regis
 formatter → structured result — exposed through a small CLI.
 
 It is **not**: a live-data service, a betting model, a machine-learning predictor, or an
-LLM-driven chatbot. It does not answer arbitrary basketball questions — only the seven supported
+LLM-driven chatbot. It does not answer arbitrary basketball questions — only the eight supported
 analytical families below.
 
 ## Key features
@@ -24,7 +24,7 @@ analytical families below.
   no network, no randomness.
 - **Validation and canonicalisation boundary** — team names are resolved (e.g. `Warriors` →
   `Golden State Warriors`), ambiguous/unknown/special teams are rejected with clear messages.
-- **Registered analytical tools** — seven pandas tools dispatched through a single registry.
+- **Registered analytical tools** — eight pandas tools dispatched through a single registry.
 - **Structured result contract** — every response is an `AssistantResult` (`status`, `message`,
   `data`, `errors`, `warnings`, `meta`), always JSON-serialisable.
 - **Deterministic formatter** — turns tool output into a user-facing message; computes nothing.
@@ -44,6 +44,7 @@ analytical families below.
 | **Head-to-head** record | `head_to_head` | `Celtics vs Heat head to head` |
 | Team **efficiency** summary | `team_efficiency_summary` | `Boston Celtics efficiency last 10 games` |
 | Team **advanced profile** | `team_advanced_profile` | `How are the Warriors performing over the last 5 games?` |
+| Two-team **comparison** | `compare_team_profiles` | `Compare Warriors and Celtics over the last 10 games` |
 
 Teams can be referenced by nickname (`Warriors`), tri-code (`GSW`), full name
 (`Boston Celtics`), or unambiguous city (`Boston`). An optional `last N games` window is
@@ -55,10 +56,18 @@ supported where it applies.
 scored and allowed, and pace-adjusted ratings (ORTG/DRTG/net rating).
 
 **Home/away splits:** the five single-team families above (average points, points allowed, record,
-efficiency, advanced profile) also accept an optional **home/away** filter — *"Warriors home record"*,
-*"Celtics efficiency away last 10 games"*, *"How many points do the Lakers allow at home?"*. `last N`
-then means the last N home/away games. Top scoring teams and head-to-head do not support location
-splits; such a query fails safely with a clear message.
+efficiency, advanced profile) — and the two-team comparison — also accept an optional **home/away**
+filter — *"Warriors home record"*, *"Celtics efficiency away last 10 games"*, *"How many points do the
+Lakers allow at home?"*, *"Compare Lakers and Knicks at home"*. `last N` then means the last N
+home/away games (applied per team for a comparison). Top scoring teams and head-to-head do not
+support location splits; such a query fails safely with a clear message.
+
+**Comparison vs head-to-head:** a **comparison** describes two teams side by side over the same
+sample type and is **descriptive, not predictive** — phrase it as *"compare X and Y"*, *"how do X and
+Y compare"*, or *"comparison between X and Y"*. A **head-to-head** reports the games the two teams
+played against each other — *"X vs Y head to head"*, *"X against Y"*. Bare *"X vs Y"* keeps its
+existing head-to-head meaning. Subjective or predictive phrasings (*"who is better"*, *"who will
+win"*, betting questions) remain unsupported.
 
 ## Limitations (by design)
 
@@ -69,7 +78,7 @@ splits; such a query fails safely with a clear message.
   offline, disabled-by-default **LLM-ready query-interpretation** interface exists as a documented
   extension point (no API key, no network, no SDK); it is gated by the same validator. See
   [docs/llm_integration_design.md](docs/llm_integration_design.md).
-- **No arbitrary Q&A** — only the seven families above are supported; anything else fails safely.
+- **No arbitrary Q&A** — only the eight families above are supported; anything else fails safely.
 - **No web app or service** — the only interface is the command line.
 - `season_id` values are treated as **opaque identifiers** and are not decoded into NBA season
   labels (e.g. there is no "2023-24" interpretation).
@@ -154,7 +163,7 @@ Test strategy and quality gates: [docs/testing_and_quality.md](docs/testing_and_
 ## Project status
 
 The implemented system includes: a deterministic rule parser, a validation/canonicalisation
-safety layer, a tool registry, seven pandas analytical tools, structured result contracts, a
+safety layer, a tool registry, eight pandas analytical tools, structured result contracts, a
 deterministic formatter, the assistant orchestrator, a runtime bootstrap, a CLI demo, and a
 comprehensive regression/safety test suite. Each layer was implemented and independently
 reviewed phase by phase.

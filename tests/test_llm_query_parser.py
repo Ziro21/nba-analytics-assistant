@@ -79,6 +79,17 @@ def test_home_away_intent_parses() -> None:
     assert dict(res.parsed_intent.arguments)["location"] == "away"
 
 
+def test_two_team_comparison_intent_parses() -> None:
+    # the comparison tool is in the allowed set, so a two-team intent is accepted (validator-gated).
+    assert "compare_team_profiles" in ALLOWED_TOOLS
+    res = parse_llm_query("x", fixed({"tool": "compare_team_profiles",
+                                      "arguments": {"team_a": "Golden State", "team_b": "Boston",
+                                                    "window": 10}}))
+    assert res.status == "parsed" and res.parsed_intent.tool_name == "compare_team_profiles"
+    assert dict(res.parsed_intent.arguments) == {"team_a": "Golden State", "team_b": "Boston",
+                                                 "window": 10}
+
+
 def test_ambiguous_team_preserved_raw() -> None:
     # the parser must NOT resolve LA — the validator detects ambiguity downstream.
     res = parse_llm_query("x", fixed({"tool": "team_average_points",
@@ -203,6 +214,16 @@ def test_e2e_valid_candidate_executes_through_real_pipeline(clean_df, context) -
                    clean_df, context)
     assert res.status == "answer" and res.tool_name == "team_advanced_profile"
     assert "away games" in res.message and res.data is not None
+    json.dumps(res.to_dict())
+
+
+def test_e2e_comparison_candidate_executes_through_real_pipeline(clean_df, context) -> None:
+    res = _ask_llm("compare golden state and boston last 10",
+                   {"tool": "compare_team_profiles",
+                    "arguments": {"team_a": "Golden State", "team_b": "Boston", "window": 10}},
+                   clean_df, context)
+    assert res.status == "answer" and res.tool_name == "compare_team_profiles"
+    assert res.data is not None and "comparison" in res.data
     json.dumps(res.to_dict())
 
 

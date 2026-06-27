@@ -27,7 +27,9 @@ NO_PARSE_QUERIES = {
     "Who is better?", "Tell me about Boston", "What happened last night?", "Top teams",
     "Warriors recent form", "Warriors last few games", "Show me recent Warriors games",
 }
-AMBIGUOUS_QUERIES = {"Compare Lakers and Celtics", "Compare LA teams"}
+# Explicit "compare A and B" now parses (compare_team_profiles); the router no longer emits
+# ambiguous. Kept (empty) so the corpus partition below stays explicit.
+AMBIGUOUS_QUERIES: set[str] = set()
 INCOMPLETE_QUERY_CODES = {
     "Warriors average points lately": "unsupported_time_expression",
     "GSW points allowed recently": "unsupported_time_expression",
@@ -35,6 +37,7 @@ INCOMPLETE_QUERY_CODES = {
     "Celtics efficiency latest games": "unsupported_time_expression",
     "Celtics vs": "missing_opponent",
     "vs Heat": "missing_team",
+    "Compare LA teams": "missing_opponent",  # routes to comparison; no clear second team
 }
 
 
@@ -99,12 +102,15 @@ def test_broad_and_metricless_vague_are_no_parse(query) -> None:
     assert parse_rule_query(query).status == "no_parse"
 
 
-@pytest.mark.parametrize("query", sorted(AMBIGUOUS_QUERIES))
-def test_generic_compare_is_ambiguous_not_h2h(query) -> None:
+@pytest.mark.parametrize("query", [
+    "Compare Lakers and Celtics",
+    "How do Warriors and Celtics compare over the last 10 games?",
+    "Give me a comparison between Lakers and Bucks.",
+])
+def test_explicit_compare_parses_to_comparison_not_h2h(query) -> None:
     res = parse_rule_query(query)
-    assert res.status == "ambiguous"
-    assert res.parsed_intent is None  # explicitly not head_to_head
-    assert "ambiguous_intent" in [e.code for e in res.errors]
+    assert res.status == "parsed"
+    assert res.parsed_intent.tool_name == "compare_team_profiles"  # explicitly not head_to_head
 
 
 @pytest.mark.parametrize("query,code", sorted(INCOMPLETE_QUERY_CODES.items()))

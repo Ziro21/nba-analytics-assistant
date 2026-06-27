@@ -10,7 +10,7 @@ network access or API key is required.
 
 - Deterministic rule parser (query normalisation, intent routing, slot extraction).
 - Validation and canonicalisation boundary (team resolution, argument and domain checks).
-- pandas-based analytical tools (seven registered tools).
+- pandas-based analytical tools (eight registered tools).
 - Tool registry with a uniform tool-result contract.
 - Assistant result contracts (`AssistantResult`, `AssistantIssue`).
 - Deterministic response formatter.
@@ -29,6 +29,8 @@ network access or API key is required.
 - Head-to-head record.
 - Team efficiency summary.
 - Team advanced profile (broad performance: record, scoring, and pace-adjusted ratings).
+- Two-team comparison (`compare_team_profiles`: descriptive side-by-side profiles over the same
+  sample; descriptive, not predictive).
 
 ### Quality and safety
 
@@ -44,7 +46,7 @@ network access or API key is required.
 
 - No live data; the dataset is a fixed bundled CSV.
 - No betting odds model and no prediction engine.
-- No arbitrary basketball Q&A; only the seven supported families are answered.
+- No arbitrary basketball Q&A; only the eight supported families are answered.
 - No LLM parser is enabled in this build.
 - No web/API/RAG/agent layer; the only interface is the command line.
 - `season_id` values are opaque internal identifiers.

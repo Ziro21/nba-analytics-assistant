@@ -128,7 +128,7 @@ def test_parsed_but_invalid(query, code, env) -> None:
 # --- parse failures never reach the validator -------------------------------
 
 @pytest.mark.parametrize("query", [
-    "Who is better?", "Compare Lakers and Celtics", "Celtics vs", "Warriors recent form",
+    "Who is better?", "Compare LA teams", "Celtics vs", "Warriors recent form",
 ])
 def test_parse_failures_have_no_validation(query, env) -> None:
     context, _ = env

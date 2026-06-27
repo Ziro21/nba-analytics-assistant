@@ -36,7 +36,7 @@ EXPECTED_CODES = {
     "unknown_tool", "arguments_not_dict", "missing_required_argument", "unexpected_argument",
     "invalid_argument_type", "invalid_parser_mode", "unknown_team", "ambiguous_team",
     "invalid_special_team", "invalid_window", "invalid_n", "invalid_season_id", "invalid_location",
-    "same_team_head_to_head",
+    "same_team_head_to_head", "same_team_comparison",
 }
 
 

@@ -207,7 +207,7 @@ def test_valid_path_calls_validator_and_registry(monkeypatch) -> None:
 
 @pytest.mark.parametrize("query", [
     "Who is better?",
-    "Compare Lakers and Celtics",
+    "Compare LA teams",  # routes to comparison but has no clear second team -> parse failure
     "Warriors last few games",
 ])
 def test_parse_failures_skip_validation_and_execution(query, monkeypatch) -> None:

@@ -211,7 +211,7 @@ def test_phase9_final_supported_queries_return_expected_answers(query, tool, mus
 
 @pytest.mark.parametrize("query,status,code", [
     ("Who is better?", "unsupported", None),
-    ("Compare Lakers and Celtics", "clarification_needed", None),
+    ("Compare LA teams", "clarification_needed", None),    # comparison, no clear second team
     ("Warriors last few games", None, None),               # safe failure; not an answer
     ("How many points do LA average?", "clarification_needed", AMBIGUOUS_TEAM),
     ("How many points do Celics average?", "clarification_needed", UNKNOWN_TEAM),

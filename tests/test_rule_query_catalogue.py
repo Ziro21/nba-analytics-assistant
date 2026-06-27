@@ -24,7 +24,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 REGISTERED_TOOLS = {
     "team_average_points", "average_points_allowed", "team_record",
     "top_scoring_teams", "head_to_head", "team_efficiency_summary",
-    "team_advanced_profile",
+    "team_advanced_profile", "compare_team_profiles",
 }
 PARSER_FUNCTION_NAMES = ("parse_rule_query", "route_intent", "extract_slots", "normalise_query")
 
@@ -33,7 +33,7 @@ PARSER_FUNCTION_NAMES = ("parse_rule_query", "route_intent", "extract_slots", "n
 
 def test_supported_tool_names() -> None:
     assert set(SUPPORTED_TOOL_NAMES) == REGISTERED_TOOLS
-    assert len(SUPPORTED_TOOL_NAMES) == len(set(SUPPORTED_TOOL_NAMES)) == 7
+    assert len(SUPPORTED_TOOL_NAMES) == len(set(SUPPORTED_TOOL_NAMES)) == 8
 
 
 # --- Supported examples -----------------------------------------------------
@@ -90,12 +90,14 @@ def test_unsupported_examples_are_non_parsed_with_error_codes() -> None:
         assert all(code in PARSE_ERROR_CODES for code in ex.expected_error_codes)
 
 
-def test_generic_compare_is_ambiguous_not_parsed() -> None:
+def test_unsupported_compare_is_incomplete_not_parsed() -> None:
+    # Explicit "compare A and B" is now a SUPPORTED comparison; the only unsupported compare
+    # ("Compare LA teams") has no clear second team, so it is incomplete (never head_to_head).
     compares = [ex for ex in UNSUPPORTED_QUERY_EXAMPLES if "compare" in ex.query.lower()]
     assert compares
     for ex in compares:
-        assert ex.expected_status == "ambiguous"
-        assert "ambiguous_intent" in ex.expected_error_codes
+        assert ex.expected_status == "incomplete"
+        assert "missing_opponent" in ex.expected_error_codes
 
 
 def test_vague_time_examples_use_unsupported_time_expression() -> None:

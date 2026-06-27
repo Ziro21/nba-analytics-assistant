@@ -2,14 +2,15 @@
 
 Provides the reusable building blocks every tool shares — franchise filtering, team
 filtering, an optional home/away location filter, windowing, and date-range extraction —
-plus the seven analytical tools: ``team_average_points``, ``average_points_allowed``,
+plus the eight analytical tools: ``team_average_points``, ``average_points_allowed``,
 ``team_record``, ``top_scoring_teams``, ``head_to_head``, ``team_efficiency_summary``,
-``team_advanced_profile``.
+``team_advanced_profile``, ``compare_team_profiles``.
 
 Rules: pandas is the only source of truth; no helper or tool prints, mutates its input,
 or rounds. Exhibition (All-Star) rows are excluded by default for franchise-level use.
-The five single-team tools accept an optional ``location`` ("home"/"away") applied before
-the window; ``top_scoring_teams`` and ``head_to_head`` do not.
+The five single-team tools and the two-team ``compare_team_profiles`` accept an optional
+``location`` ("home"/"away") applied before the window (per team); ``top_scoring_teams``
+and ``head_to_head`` do not.
 """
 
 from __future__ import annotations
@@ -437,6 +438,172 @@ def team_efficiency_summary(
         team=team,
         games_used=games_used,
         date_range=date_range_for(windowed),
+        window_requested=window,
+        location=location,
+    )
+    return ok_result(tool, result, meta=meta, warnings=warnings)
+
+
+# Net-rating gap (in points) within which two profiles are called "similar" rather than naming a
+# stronger team. Small gaps are not a meaningful difference, so the verdict stays neutral.
+COMPARE_NEAR_TIE_THRESHOLD = 0.5
+
+
+def _comparison_profile(result: dict, meta: dict) -> dict:
+    """Shape one team's ``team_advanced_profile`` result (+ date range) into a comparison profile.
+
+    Reuses the EXACT values the single-team profile computed, so a side of the comparison matches
+    that team's standalone advanced profile. Adds ``date_start``/``date_end`` from the meta.
+    """
+    date_range = meta.get("date_range") or [None, None]
+    return {
+        "team": result["team"],
+        "games": result["games_used"],
+        "wins": result["wins"],
+        "losses": result["losses"],
+        "record": result["record"],
+        "win_pct": result["win_percentage"],
+        "average_points_for": result["average_points_for"],
+        "average_points_against": result["average_points_against"],
+        "average_plus_minus": result["average_plus_minus"],
+        "average_ortg": result["average_ortg"],
+        "average_drtg": result["average_drtg"],
+        "average_net_rating": result["average_net_rating"],
+        "date_start": date_range[0],
+        "date_end": date_range[1],
+    }
+
+
+def _build_comparison(profile_a: dict, profile_b: dict) -> dict:
+    """Build the order-invariant descriptive comparison block from two profiles.
+
+    Differences are absolute and verdicts are team-NAME based, so ``compare(A, B)`` and
+    ``compare(B, A)`` produce an identical comparison block (only the two profiles swap). The
+    headline verdict (``stronger_profile_team``) stays ``None`` for a near-tie in net rating, and
+    never falls back to record as a tiebreaker.
+    """
+    def _higher(key: str):
+        av, bv = profile_a[key], profile_b[key]
+        if av > bv:
+            return profile_a["team"]
+        if bv > av:
+            return profile_b["team"]
+        return None  # exactly equal
+
+    def _lower(key: str):
+        av, bv = profile_a[key], profile_b[key]
+        if av < bv:
+            return profile_a["team"]
+        if bv < av:
+            return profile_b["team"]
+        return None
+
+    net_difference = abs(profile_a["average_net_rating"] - profile_b["average_net_rating"])
+    is_near_tie = net_difference < COMPARE_NEAR_TIE_THRESHOLD
+    higher_net_rating_team = _higher("average_net_rating")
+    stronger_profile_team = None if is_near_tie else higher_net_rating_team
+    if stronger_profile_team is not None:
+        profile_strength_summary = (
+            f"{stronger_profile_team} had the stronger profile over this selected sample "
+            "based on net rating."
+        )
+    else:
+        profile_strength_summary = (
+            "The two teams had similar overall profiles over this selected sample, with only a "
+            "small net-rating difference."
+        )
+    return {
+        "higher_net_rating_team": higher_net_rating_team,
+        "higher_points_for_team": _higher("average_points_for"),
+        "lower_points_against_team": _lower("average_points_against"),
+        "better_record_team": _higher("win_pct"),
+        "net_rating_difference": net_difference,
+        "points_for_difference": abs(
+            profile_a["average_points_for"] - profile_b["average_points_for"]
+        ),
+        "points_against_difference": abs(
+            profile_a["average_points_against"] - profile_b["average_points_against"]
+        ),
+        "is_near_tie": is_near_tie,
+        "near_tie_threshold": COMPARE_NEAR_TIE_THRESHOLD,
+        "stronger_profile_team": stronger_profile_team,
+        "profile_strength_summary": profile_strength_summary,
+    }
+
+
+def compare_team_profiles(
+    clean_df: pd.DataFrame,
+    team_a: str,
+    team_b: str,
+    window: int | None = None,
+    location: str | None = None,
+) -> ToolResult:
+    """Descriptive side-by-side profile comparison of two teams over the same sample type.
+
+    Computes each team's broad profile with the EXISTING ``team_advanced_profile`` (so each side
+    matches that team's standalone profile), then derives an order-invariant comparison block
+    (absolute metric gaps + team-named verdicts; net rating is the headline indicator with a
+    near-tie guard). Per the home/away contract, ``location`` filters each team BEFORE its window,
+    and each team's last-N window is applied independently — so the two samples may differ in size,
+    which is reported honestly as each profile's ``games``.
+
+    Validation order: same resolved team → ``error``; an invalid window/location surfaced by the
+    underlying profile → ``error``; either team with no qualifying games → ``no_data`` (a comparison
+    needs real games for both). The input is never mutated; values are unrounded (the formatter
+    rounds for display). This is descriptive only — it never predicts outcomes or gives advice.
+    """
+    tool = "compare_team_profiles"
+    # Defensive same-team guard (the validator rejects the same RESOLVED team upstream).
+    if team_a == team_b:
+        return error_result(
+            tool,
+            f"team_a and team_b must be two different teams; both were {team_a!r}.",
+            meta=build_meta(team=team_a, location=location),
+        )
+
+    profile_a_result = team_advanced_profile(clean_df, team_a, window, location)
+    profile_b_result = team_advanced_profile(clean_df, team_b, window, location)
+
+    # Propagate an invalid window/location (both sides receive the same args).
+    for side in (profile_a_result, profile_b_result):
+        if side["status"] == "error":
+            message = str(side["result"].get("message", "Invalid comparison request."))
+            return error_result(tool, message, meta=build_meta(location=location))
+
+    warnings = list(profile_a_result["warnings"]) + list(profile_b_result["warnings"])
+
+    # A comparison needs real games for BOTH teams; never compare a profile against an empty one.
+    missing = [
+        team for team, side in ((team_a, profile_a_result), (team_b, profile_b_result))
+        if side["status"] == "no_data"
+    ]
+    if missing:
+        return no_data_result(
+            tool,
+            result={
+                "team_a": team_a, "team_b": team_b, "window": window, "location": location,
+                "teams_without_data": missing,
+            },
+            meta=build_meta(games_used=0, window_requested=window, location=location),
+            warnings=warnings + [
+                f"No {_loc_word(location)}games found for "
+                f"{' and '.join(repr(t) for t in missing)}; cannot compare."
+            ],
+        )
+
+    profile_a = _comparison_profile(profile_a_result["result"], profile_a_result["meta"])
+    profile_b = _comparison_profile(profile_b_result["result"], profile_b_result["meta"])
+    result = {
+        "team_a": team_a,
+        "team_b": team_b,
+        "window": window,
+        "location": location,
+        "team_a_profile": profile_a,
+        "team_b_profile": profile_b,
+        "comparison": _build_comparison(profile_a, profile_b),
+    }
+    meta = build_meta(
+        games_used=profile_a["games"] + profile_b["games"],
         window_requested=window,
         location=location,
     )
