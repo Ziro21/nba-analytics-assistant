@@ -22,7 +22,8 @@ no betting prediction, no arbitrary question answering, no enabled LLM parser, a
 - **CLI demo** — a thin, scriptable interface with deterministic exit codes; an optional
   `--pretty` Rich terminal mode (presentation only, optional dependency) for nicer output.
 - **Layered tests and final acceptance gates** — a large regression suite plus end-of-phase
-  acceptance gates and a final delivery gate.
+  acceptance gates, a final delivery gate, and independent validation (an oracle layer that
+  recomputes answers a second way, and an adversarial/fuzz layer that confirms fail-closed behaviour).
 - **Strong scope and safety boundaries** — enforced and machine-checked (import-scope guards,
   no data loading in the assistant, registry-only dispatch).
 

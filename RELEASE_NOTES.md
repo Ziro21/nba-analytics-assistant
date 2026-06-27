@@ -43,6 +43,9 @@ network access or API key is required.
 - Every response is a structured, JSON-serialisable result; failures are explained, not guessed.
 - Import-scope guards keep the assistant and CLI free of pandas, data loaders, and direct tools.
 - The full test suite passes, including end-of-phase acceptance gates and a final delivery gate.
+- Independent validation: an **oracle** layer recomputes every tool's output a second, independent
+  way (clean-view derivations checked against the raw CSV; tool results checked against from-scratch
+  pandas), and an **adversarial/fuzz** layer confirms the assistant fails closed on any input.
 
 ### Known limitations
 
