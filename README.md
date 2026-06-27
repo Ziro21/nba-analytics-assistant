@@ -52,8 +52,13 @@ supported where it applies.
 **Simple vs broad:** a single-metric question keeps a simple answer (e.g. *"…averaged 114.4 points
 …"*). A broad performance question — *"How are the Warriors performing…"*, *"advanced profile"*, or
 *"summarise the Warriors over the last 10 games"* — returns a fuller **profile**: record, points
-scored and allowed, and pace-adjusted ratings (ORTG/DRTG/net rating). Location splits (home/away) are
-not supported and fail safely.
+scored and allowed, and pace-adjusted ratings (ORTG/DRTG/net rating).
+
+**Home/away splits:** the five single-team families above (average points, points allowed, record,
+efficiency, advanced profile) also accept an optional **home/away** filter — *"Warriors home record"*,
+*"Celtics efficiency away last 10 games"*, *"How many points do the Lakers allow at home?"*. `last N`
+then means the last N home/away games. Top scoring teams and head-to-head do not support location
+splits; such a query fails safely with a clear message.
 
 ## Limitations (by design)
 

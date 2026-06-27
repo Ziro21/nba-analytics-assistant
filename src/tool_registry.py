@@ -41,7 +41,7 @@ REGISTRY_TOOL_NAME = "tool_registry"
 # JSON-safe parameter type strings allowed in public schemas. Restricting to this set
 # guarantees schemas stay serialisable and rules out raw Python type objects and typos.
 ALLOWED_PARAM_TYPES = frozenset(
-    {"str", "int", "int|null", "float", "float|null", "bool", "bool|null"}
+    {"str", "str|null", "int", "int|null", "float", "float|null", "bool", "bool|null"}
 )
 
 
@@ -223,10 +223,11 @@ class ToolRegistry:
         return result
 
 
-# --- Default registry: the six analytical tools (explicit registration) -----
+# --- Default registry: the seven analytical tools (explicit registration) ---
 
 def _team_window_params() -> tuple[ToolParameter, ...]:
-    """The standard (team, optional window) parameter pair shared by team-level tools."""
+    """The standard (team, optional window, optional location) parameters shared by single-team
+    tools. ``location`` is an optional ``"home"``/``"away"`` venue split (validated downstream)."""
     return (
         ToolParameter(name="team", type="str", required=True, description="Canonical team name."),
         ToolParameter(
@@ -234,11 +235,16 @@ def _team_window_params() -> tuple[ToolParameter, ...]:
             description="Optional recent-game window. If omitted, all available games are used.",
             default=None,
         ),
+        ToolParameter(
+            name="location", type="str|null", required=False,
+            description="Optional venue split: 'home' or 'away'. If omitted, all games are used.",
+            default=None,
+        ),
     )
 
 
 def build_default_registry() -> ToolRegistry:
-    """Construct a registry with the six analytical tools, registered explicitly.
+    """Construct a registry with the seven analytical tools, registered explicitly.
 
     Registration order is the logical project order (not alphabetical) and is the order
     in which ``schemas()`` lists them.

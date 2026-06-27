@@ -30,12 +30,14 @@ from src.assistant_types import (
 )
 from src.intent_types import (
     AMBIGUOUS_TEAM as VALIDATION_AMBIGUOUS_TEAM,
+    INVALID_LOCATION as VALIDATION_INVALID_LOCATION,
     INVALID_N,
     INVALID_SEASON_ID,
     INVALID_SPECIAL_TEAM as VALIDATION_INVALID_SPECIAL_TEAM,
     INVALID_WINDOW,
     MISSING_REQUIRED_ARGUMENT,
     SAME_TEAM_HEAD_TO_HEAD as VALIDATION_SAME_TEAM_HEAD_TO_HEAD,
+    UNEXPECTED_ARGUMENT,
     UNKNOWN_TEAM as VALIDATION_UNKNOWN_TEAM,
     ValidationError,
     ValidationResult,
@@ -92,11 +94,18 @@ def _plural(value: object, singular: str, plural: str) -> str:
     return singular if value == 1 else plural
 
 
+def _venue_word(meta: Mapping[str, object]) -> str:
+    """A trailing-spaced venue qualifier from meta: ``'home '`` / ``'away '`` / ``''``."""
+    location = meta.get("location")
+    return f"{location} " if location in ("home", "away") else ""
+
+
 def _window_phrase(meta: Mapping[str, object], *, noun: str = "game") -> str:
+    venue = _venue_word(meta)
     window = meta.get("window_requested")
     if window is not None:
-        return f"over the last {window} {_plural(window, noun, noun + 's')}"
-    return "across all available games"
+        return f"over the last {window} {venue}{_plural(window, noun, noun + 's')}"
+    return f"across all available {venue}{noun}s"
 
 
 def _safe_query(query: str) -> str:
@@ -163,10 +172,11 @@ def _tool_message(tool_name: str, result: Mapping[str, object],
         team = result["team"]
         record = result["record"]
         games = result.get("games_used", meta.get("games_used"))
+        venue = _venue_word(meta)
         window = meta.get("window_requested")
         if window is not None:
-            return f"{team} are {record} over the last {window} {_plural(window, 'game', 'games')}."
-        return f"{team} are {record} across {games} {_plural(games, 'game', 'games')}."
+            return f"{team} are {record} over the last {window} {venue}{_plural(window, 'game', 'games')}."
+        return f"{team} are {record} across {games} {venue}{_plural(games, 'game', 'games')}."
 
     if tool_name == "top_scoring_teams":
         teams = result["teams"]
@@ -359,7 +369,7 @@ def _select_primary_error(errors: Sequence, priority: Sequence[str]):
 _VALIDATION_PRIORITY = (
     VALIDATION_AMBIGUOUS_TEAM, VALIDATION_UNKNOWN_TEAM, VALIDATION_INVALID_SPECIAL_TEAM,
     VALIDATION_SAME_TEAM_HEAD_TO_HEAD, MISSING_REQUIRED_ARGUMENT, INVALID_WINDOW,
-    INVALID_N, INVALID_SEASON_ID,
+    INVALID_N, INVALID_SEASON_ID, VALIDATION_INVALID_LOCATION, UNEXPECTED_ARGUMENT,
 )
 _PARSE_INCOMPLETE_PRIORITY = (
     MISSING_TEAM, MISSING_OPPONENT, UNSUPPORTED_TIME_EXPRESSION, MISSING_NUMBER,
@@ -409,6 +419,11 @@ def _message_for_validation_error(error: ValidationError) -> Optional[str]:
         return "Please use a positive whole number for the ranking size."
     if code == INVALID_SEASON_ID:
         return "Please use one of the supported season identifiers."
+    if code == VALIDATION_INVALID_LOCATION:
+        return 'Please use "home" or "away" for the location.'
+    if code == UNEXPECTED_ARGUMENT and error.field == "location":
+        return ("Home/away splits are only available for single-team queries — averages, points "
+                "allowed, record, efficiency, and advanced profile.")
     return None
 
 
@@ -491,6 +506,7 @@ def _assistant_issue_from_validation_error(error: ValidationError) -> AssistantI
         INVALID_WINDOW: MISSING_INFORMATION,
         INVALID_N: MISSING_INFORMATION,
         INVALID_SEASON_ID: MISSING_INFORMATION,
+        VALIDATION_INVALID_LOCATION: MISSING_INFORMATION,
     }
     return AssistantIssue(
         code=code_by_validation_code.get(error.code, VALIDATION_FAILED),

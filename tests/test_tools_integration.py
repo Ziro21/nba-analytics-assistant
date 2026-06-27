@@ -1,4 +1,4 @@
-"""Phase 5H integration review: all six analytical tools verified together.
+"""Phase 5H integration review: all seven analytical tools verified together.
 
 This is a consolidation / quality-gate suite, not new tool development. It checks the
 shared result contract, consolidated oracles, status semantics, metadata, immutability,
@@ -26,7 +26,7 @@ from src.tools import (
     top_scoring_teams,
 )
 
-META_KEYS = {"team", "games_used", "date_range", "window_requested", "season_id"}
+META_KEYS = {"team", "games_used", "date_range", "window_requested", "season_id", "location"}
 TOP_LEVEL_KEYS = {"status", "tool", "result", "meta", "warnings"}
 VALID_STATUSES = {"ok", "no_data", "error"}
 
@@ -67,7 +67,7 @@ def clean_df() -> pd.DataFrame:
 
 # --- 1 & 9. existence / scope -----------------------------------------------
 
-def test_all_six_tools_callable() -> None:
+def test_all_tools_callable() -> None:
     for _, call in SUCCESS_CALLS:
         assert callable(call)
 

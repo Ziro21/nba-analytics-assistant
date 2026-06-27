@@ -33,6 +33,12 @@ python -m src.cli "Boston Celtics efficiency last 10 games"
 python -m src.cli "How are the Warriors performing over the last 5 games?"
 # Golden State Warriors over the last 5 games: 2-3 record, 114.4 points scored per game,
 # 117.0 points allowed, 107.04 ORTG, 109.78 DRTG, and -2.73 net rating.
+
+python -m src.cli "What is the Warriors home record?"
+# Golden State Warriors are 170-86 across 256 home games.
+
+python -m src.cli "How many points do the Celtics score on the road over the last 5 games?"
+# Boston Celtics averaged 104.2 points over the last 5 away games.
 ```
 
 Note how the validator canonicalises the team: `Warriors` and `GSW` both become
@@ -42,8 +48,13 @@ Note how the validator canonicalises the team: `Warriors` and `GSW` both become
 question (`How are the Warriors performing…`, `advanced profile`, `summarise the Warriors over the
 last 10 games`, `compare the Warriors offense and defense over the last 5 games`) returns a fuller
 **profile** — record, points scored and allowed, and pace-adjusted ratings. Simple answers are never
-auto-enriched with this extra context, and home/away splits are not supported (such queries fail
-safely as unsupported).
+auto-enriched with this extra context.
+
+**Home/away splits.** The five single-team families (average points, points allowed, record,
+efficiency, advanced profile) accept an optional `home`/`away` filter (`at home`, `on the road` also
+work); with a window, `last N` then means the last N home/away games. `top scoring teams` and
+`head-to-head` do not support location splits — those queries fail safely with a clear message. This
+stays offline and deterministic — no live data, no betting forecasts, and no UI.
 
 ## JSON output
 

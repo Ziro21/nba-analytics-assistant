@@ -30,7 +30,7 @@ def clean_df() -> pd.DataFrame:
     return clean
 
 
-# --- Check 6: registry result == direct tool call (all six) -----------------
+# --- Check 6: registry result == direct tool call (all seven) ---------------
 
 DIRECT_VS_REGISTRY = [
     ("team_average_points",

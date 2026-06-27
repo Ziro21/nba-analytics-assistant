@@ -189,10 +189,12 @@ def test_compare_offense_defense_routes_to_profile(clean_df, context) -> None:
     assert r.status == "answer" and r.tool_name == "team_advanced_profile"
 
 
-def test_location_profile_is_unsupported(clean_df, context) -> None:
+def test_location_profile_is_supported(clean_df, context) -> None:
+    # home/away splits are now supported for single-team tools (see test_home_away_splits.py).
     r = _ask("Warriors advanced profile at home", clean_df, context)
-    assert r.status == "unsupported"
-    assert r.data is None
+    assert r.status == "answer" and r.tool_name == "team_advanced_profile"
+    assert r.meta.get("location") == "home"
+    assert "home games" in r.message
 
 
 def test_subjective_and_betting_queries_remain_unsupported(clean_df, context) -> None:

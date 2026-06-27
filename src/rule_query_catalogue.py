@@ -157,6 +157,22 @@ SUPPORTED_QUERY_EXAMPLES = (
     _parsed("Warriors performance profile", "team_advanced_profile", {"team": "Warriors"}),
     _parsed("Compare the Warriors offense and defense over the last 5 games.",
             "team_advanced_profile", {"team": "Warriors", "window": 5}, tags=("compare",)),
+    # home/away contextual splits (single-team tools only; location is a raw slot the validator keeps)
+    _parsed("What is the Warriors home record?", "team_record",
+            {"team": "Warriors", "location": "home"}, tags=("location",)),
+    _parsed("Lakers record away", "team_record",
+            {"team": "Lakers", "location": "away"}, tags=("location",)),
+    _parsed("How many points do the Warriors average at home?", "team_average_points",
+            {"team": "Warriors", "location": "home"}, tags=("location",)),
+    _parsed("How many points do the Lakers allow at home over the last 10 games?",
+            "average_points_allowed", {"team": "Lakers", "location": "home", "window": 10},
+            tags=("location",)),
+    _parsed("Warriors efficiency away last 10 games", "team_efficiency_summary",
+            {"team": "Warriors", "location": "away", "window": 10}, tags=("location",)),
+    _parsed("Warriors advanced profile at home", "team_advanced_profile",
+            {"team": "Warriors", "location": "home"}, tags=("location",)),
+    _parsed("How are the Celtics performing away over the last 5 games?", "team_advanced_profile",
+            {"team": "Celtics", "location": "away", "window": 5}, tags=("location",)),
 )
 
 
@@ -182,9 +198,6 @@ UNSUPPORTED_QUERY_EXAMPLES = (
     _failed("Celtics efficiency latest games", "incomplete", (UNSUPPORTED_TIME_EXPRESSION,), tags=("vague_time",)),
     _failed("Celtics vs", "incomplete", (MISSING_OPPONENT,), tags=("h2h_incomplete",)),
     _failed("vs Heat", "incomplete", (MISSING_TEAM,), tags=("h2h_incomplete",)),
-    # location splits are not supported -> unsupported, never silently ignored
-    _failed("Warriors advanced profile at home", "no_parse", (UNSUPPORTED_QUERY,), tags=("location",)),
-    _failed("Lakers record away", "no_parse", (UNSUPPORTED_QUERY,), tags=("location",)),
 )
 
 ALL_QUERY_EXAMPLES = SUPPORTED_QUERY_EXAMPLES + UNSUPPORTED_QUERY_EXAMPLES

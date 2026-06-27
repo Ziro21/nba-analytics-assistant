@@ -20,6 +20,7 @@ class ResultMeta(TypedDict):
     date_range: Optional[list[str]]
     window_requested: Optional[int]
     season_id: Optional[int]
+    location: Optional[str]
 
 
 class ToolResult(TypedDict):
@@ -38,11 +39,13 @@ def build_meta(
     date_range: Optional[list[str]] = None,
     window_requested: Optional[int] = None,
     season_id: Optional[int] = None,
+    location: Optional[str] = None,
 ) -> ResultMeta:
     """Return a standard metadata block; missing fields default to ``None``.
 
     Numeric fields are coerced to plain ``int`` and ``date_range`` to a list of strings
     so the result stays JSON-serialisable even if callers pass numpy/pandas scalars.
+    ``location`` is ``"home"``/``"away"``/``None`` (single-team contextual split).
     """
     return {
         "team": team,
@@ -50,6 +53,7 @@ def build_meta(
         "date_range": [str(d) for d in date_range] if date_range is not None else None,
         "window_requested": int(window_requested) if window_requested is not None else None,
         "season_id": int(season_id) if season_id is not None else None,
+        "location": str(location) if location is not None else None,
     }
 
 

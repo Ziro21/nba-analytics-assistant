@@ -1,6 +1,6 @@
-"""Phase 5A–5G tests: tool result contract, shared dataframe helpers, and all six
+"""Phase 5A–5G tests: tool result contract, shared dataframe helpers, and all seven
 analytical tools (``team_average_points``, ``average_points_allowed``, ``team_record``,
-``top_scoring_teams``, ``head_to_head``, ``team_efficiency_summary``).
+``top_scoring_teams``, ``head_to_head``, ``team_efficiency_summary``, ``team_advanced_profile``).
 
 Integration tests build the real clean frame through the real pipeline. No network, no LLM.
 """
@@ -35,10 +35,10 @@ from src.tools import (
     top_scoring_teams,
 )
 
-META_KEYS = {"team", "games_used", "date_range", "window_requested", "season_id"}
+META_KEYS = {"team", "games_used", "date_range", "window_requested", "season_id", "location"}
 TOP_LEVEL_KEYS = {"status", "tool", "result", "meta", "warnings"}
 
-# All six analytical tools are implemented after Phase 5G.
+# All seven analytical tools are implemented (six in Phase 5G; advanced profile added later).
 IMPLEMENTED_TOOL_NAMES = (
     "team_average_points",
     "average_points_allowed",

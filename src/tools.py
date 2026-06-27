@@ -1,13 +1,15 @@
 """Shared dataframe helpers and the analytical tools.
 
 Provides the reusable building blocks every tool shares — franchise filtering, team
-filtering, windowing, and date-range extraction — plus the analytical tools as they are
-implemented one per Phase 5 sub-step. All six are now implemented:
-``team_average_points``, ``average_points_allowed``, ``team_record``,
-``top_scoring_teams``, ``head_to_head``, ``team_efficiency_summary``.
+filtering, an optional home/away location filter, windowing, and date-range extraction —
+plus the seven analytical tools: ``team_average_points``, ``average_points_allowed``,
+``team_record``, ``top_scoring_teams``, ``head_to_head``, ``team_efficiency_summary``,
+``team_advanced_profile``.
 
 Rules: pandas is the only source of truth; no helper or tool prints, mutates its input,
 or rounds. Exhibition (All-Star) rows are excluded by default for franchise-level use.
+The five single-team tools accept an optional ``location`` ("home"/"away") applied before
+the window; ``top_scoring_teams`` and ``head_to_head`` do not.
 """
 
 from __future__ import annotations
@@ -42,6 +44,28 @@ def filter_team_games(clean_df: pd.DataFrame, team: str) -> pd.DataFrame:
     """
     franchise = filter_franchise_games(clean_df)
     return franchise.loc[franchise["team_name"] == team].copy()
+
+
+def _apply_location_filter(team_games: pd.DataFrame, location: str | None) -> pd.DataFrame:
+    """Filter a team's games to a venue context. ``None`` returns the frame unchanged.
+
+    ``location="home"`` keeps ``is_home`` rows; ``"away"`` keeps the rest. Applied BEFORE any
+    window so ``last N`` means the last N home/away games. Order preserved; input not mutated.
+    Any other value raises ``ValueError`` (surfaced by the caller as a tool-level error).
+    """
+    if location is None:
+        return team_games
+    # ``is_home`` is a 0/1 integer flag, so compare explicitly to build a boolean mask.
+    if location == "home":
+        return team_games.loc[team_games["is_home"] == 1].copy()
+    if location == "away":
+        return team_games.loc[team_games["is_home"] == 0].copy()
+    raise ValueError(f"location must be 'home', 'away', or None, got {location!r}")
+
+
+def _loc_word(location: str | None) -> str:
+    """A trailing-spaced venue qualifier for messages: ``'home '`` / ``'away '`` / ``''``."""
+    return f"{location} " if location in ("home", "away") else ""
 
 
 def _validate_window_value(window: int | None) -> None:
@@ -96,28 +120,30 @@ def _team_average_metric(
     result_key: str,
     tool_name: str,
     window: int | None = None,
+    location: str | None = None,
 ) -> ToolResult:
     """Shared logic for a single-metric team average over recent games.
 
     Used by ``team_average_points`` (points_for) and ``average_points_allowed``
-    (points_against). Status semantics: an invalid window (``<= 0``, non-int, bool)
-    yields ``status="error"`` (checked first, so it wins even for an unknown team); a
-    team with no matching games yields ``status="no_data"`` (distinguishing a genuinely
-    unknown team is the validator's job upstream). An over-long window uses all games
-    with a warning. pandas computes the mean — the value is returned unrounded.
+    (points_against). Status semantics: an invalid window (``<= 0``, non-int, bool) or invalid
+    location yields ``status="error"``; a team with no matching games yields ``status="no_data"``
+    (distinguishing a genuinely unknown team is the validator's job upstream). With ``location``,
+    home/away filtering is applied BEFORE the window. An over-long window uses all games with a
+    warning. pandas computes the mean — the value is returned unrounded.
     """
     team_games = filter_team_games(clean_df, team)
     try:
-        windowed, warnings = apply_window(team_games, window)
+        located = _apply_location_filter(team_games, location)
+        windowed, warnings = apply_window(located, window)
     except ValueError as exc:
-        return error_result(tool_name, str(exc), meta=build_meta(team=team))
+        return error_result(tool_name, str(exc), meta=build_meta(team=team, location=location))
 
     if windowed.empty:
         return no_data_result(
             tool_name,
             result={"team": team, result_key: None, "games_used": 0},
-            meta=build_meta(team=team, games_used=0, window_requested=window),
-            warnings=[f"No games found for team {team!r}."],
+            meta=build_meta(team=team, games_used=0, window_requested=window, location=location),
+            warnings=[f"No {_loc_word(location)}games found for team {team!r}."],
         )
 
     value = float(windowed[metric_column].mean())
@@ -127,6 +153,7 @@ def _team_average_metric(
         games_used=games_used,
         date_range=date_range_for(windowed),
         window_requested=window,
+        location=location,
     )
     return ok_result(
         tool_name,
@@ -137,16 +164,16 @@ def _team_average_metric(
 
 
 def team_average_points(
-    clean_df: pd.DataFrame, team: str, window: int | None = None
+    clean_df: pd.DataFrame, team: str, window: int | None = None, location: str | None = None
 ) -> ToolResult:
     """Average points scored (``points_for``) by a team over its most recent games."""
     return _team_average_metric(
-        clean_df, team, "points_for", "average_points", "team_average_points", window
+        clean_df, team, "points_for", "average_points", "team_average_points", window, location
     )
 
 
 def average_points_allowed(
-    clean_df: pd.DataFrame, team: str, window: int | None = None
+    clean_df: pd.DataFrame, team: str, window: int | None = None, location: str | None = None
 ) -> ToolResult:
     """Average points conceded (``points_against``) by a team over its most recent games."""
     return _team_average_metric(
@@ -156,11 +183,12 @@ def average_points_allowed(
         "average_points_allowed",
         "average_points_allowed",
         window,
+        location,
     )
 
 
 def team_record(
-    clean_df: pd.DataFrame, team: str, window: int | None = None
+    clean_df: pd.DataFrame, team: str, window: int | None = None, location: str | None = None
 ) -> ToolResult:
     """Win/loss record for a team over its most recent games (from ``win_flag``).
 
@@ -168,26 +196,28 @@ def team_record(
         clean_df: The clean per-team-game view.
         team: Exact canonical ``team_name``.
         window: Number of most recent games; ``None`` uses all games.
+        location: Optional ``"home"``/``"away"`` venue split (applied before the window).
 
     Returns the §4.1 contract. ``wins`` counts ``win_flag``; ``losses`` is the remainder
     (NBA games have no draws); ``win_percentage`` is ``wins / games_used`` (unrounded).
-    Invalid window → ``status="error"`` (checked first); a team with no games →
-    ``status="no_data"``; an over-long window uses all games with a warning.
+    Invalid window/location → ``status="error"``; a team with no games → ``status="no_data"``;
+    an over-long window uses all games with a warning.
     """
     tool = "team_record"
     team_games = filter_team_games(clean_df, team)
     try:
-        windowed, warnings = apply_window(team_games, window)
+        located = _apply_location_filter(team_games, location)
+        windowed, warnings = apply_window(located, window)
     except ValueError as exc:
-        return error_result(tool, str(exc), meta=build_meta(team=team))
+        return error_result(tool, str(exc), meta=build_meta(team=team, location=location))
 
     if windowed.empty:
         return no_data_result(
             tool,
             result={"team": team, "wins": 0, "losses": 0, "record": "0-0",
                     "games_used": 0, "win_percentage": None},
-            meta=build_meta(team=team, games_used=0, window_requested=window),
-            warnings=[f"No games found for team {team!r}."],
+            meta=build_meta(team=team, games_used=0, window_requested=window, location=location),
+            warnings=[f"No {_loc_word(location)}games found for team {team!r}."],
         )
 
     games_used = len(windowed)
@@ -206,6 +236,7 @@ def team_record(
         games_used=games_used,
         date_range=date_range_for(windowed),
         window_requested=window,
+        location=location,
     )
     return ok_result(tool, result, meta=meta, warnings=warnings)
 
@@ -360,7 +391,7 @@ def head_to_head(
 
 
 def team_efficiency_summary(
-    clean_df: pd.DataFrame, team: str, window: int | None = None
+    clean_df: pd.DataFrame, team: str, window: int | None = None, location: str | None = None
 ) -> ToolResult:
     """Descriptive recent-form efficiency summary for a team.
 
@@ -369,17 +400,18 @@ def team_efficiency_summary(
     games. This is a per-game mean, NOT a possession-weighted season-level aggregate.
     The tool does not judge whether a team is "good" or "bad" — that is the formatter's job.
 
-    Returns the §4.1 contract. Invalid window → ``status="error"`` (checked first); a team
-    with no games → ``status="no_data"``; an over-long window uses all games with a warning.
-    Values are returned unrounded. ``ortg``/``drtg``/``net_rating``/``possessions`` are core,
-    null-free columns, so the means need no NaN handling.
+    Returns the §4.1 contract. With ``location`` (``"home"``/``"away"``), home/away filtering is
+    applied before the window. Invalid window/location → ``status="error"``; a team with no games →
+    ``status="no_data"``; an over-long window uses all games with a warning. Values are returned
+    unrounded. ``ortg``/``drtg``/``net_rating``/``possessions`` are core, null-free columns.
     """
     tool = "team_efficiency_summary"
     team_games = filter_team_games(clean_df, team)
     try:
-        windowed, warnings = apply_window(team_games, window)
+        located = _apply_location_filter(team_games, location)
+        windowed, warnings = apply_window(located, window)
     except ValueError as exc:
-        return error_result(tool, str(exc), meta=build_meta(team=team))
+        return error_result(tool, str(exc), meta=build_meta(team=team, location=location))
 
     if windowed.empty:
         return no_data_result(
@@ -388,8 +420,8 @@ def team_efficiency_summary(
                 "team": team, "average_ortg": None, "average_drtg": None,
                 "average_net_rating": None, "average_possessions": None, "games_used": 0,
             },
-            meta=build_meta(team=team, games_used=0, window_requested=window),
-            warnings=[f"No games found for team {team!r}."],
+            meta=build_meta(team=team, games_used=0, window_requested=window, location=location),
+            warnings=[f"No {_loc_word(location)}games found for team {team!r}."],
         )
 
     games_used = len(windowed)
@@ -406,12 +438,13 @@ def team_efficiency_summary(
         games_used=games_used,
         date_range=date_range_for(windowed),
         window_requested=window,
+        location=location,
     )
     return ok_result(tool, result, meta=meta, warnings=warnings)
 
 
 def team_advanced_profile(
-    clean_df: pd.DataFrame, team: str, window: int | None = None
+    clean_df: pd.DataFrame, team: str, window: int | None = None, location: str | None = None
 ) -> ToolResult:
     """Broad performance profile for a team: record, scoring, and pace-adjusted ratings.
 
@@ -420,16 +453,18 @@ def team_advanced_profile(
     ``drtg`` / ``net_rating`` over the selected games. This is for broad "how are they performing"
     questions; simple single-metric questions keep their own tools.
 
-    Returns the §4.1 contract. Invalid window → ``status="error"`` (checked first); a team with no
-    games → ``status="no_data"``; an over-long window uses all games with a warning. Values are
-    returned unrounded; the formatter rounds for display. The input is never mutated.
+    Returns the §4.1 contract. With ``location`` (``"home"``/``"away"``), home/away filtering is
+    applied before the window. Invalid window/location → ``status="error"``; a team with no games →
+    ``status="no_data"``; an over-long window uses all games with a warning. Values are returned
+    unrounded; the formatter rounds for display. The input is never mutated.
     """
     tool = "team_advanced_profile"
     team_games = filter_team_games(clean_df, team)
     try:
-        windowed, warnings = apply_window(team_games, window)
+        located = _apply_location_filter(team_games, location)
+        windowed, warnings = apply_window(located, window)
     except ValueError as exc:
-        return error_result(tool, str(exc), meta=build_meta(team=team))
+        return error_result(tool, str(exc), meta=build_meta(team=team, location=location))
 
     if windowed.empty:
         return no_data_result(
@@ -440,8 +475,8 @@ def team_advanced_profile(
                 "average_points_against": None, "average_plus_minus": None,
                 "average_ortg": None, "average_drtg": None, "average_net_rating": None,
             },
-            meta=build_meta(team=team, games_used=0, window_requested=window),
-            warnings=[f"No games found for team {team!r}."],
+            meta=build_meta(team=team, games_used=0, window_requested=window, location=location),
+            warnings=[f"No {_loc_word(location)}games found for team {team!r}."],
         )
 
     games_used = len(windowed)
@@ -466,5 +501,6 @@ def team_advanced_profile(
         games_used=games_used,
         date_range=date_range_for(windowed),
         window_requested=window,
+        location=location,
     )
     return ok_result(tool, result, meta=meta, warnings=warnings)

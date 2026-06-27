@@ -75,11 +75,6 @@ PROFILE_SIGNALS = (
 # Generic comparison keyword: ambiguous unless a metric/h2h/profile signal is also present.
 COMPARE_SIGNAL = "compare"
 
-# Location splits (home/away/road) are NOT implemented; a location-qualified query is unsupported
-# rather than silently answered as all-games. Whole-word signals; no team/alias/supported phrasing
-# contains these, so the supported catalogue is unaffected.
-LOCATION_SIGNALS = ("home", "away", "road")
-
 
 @dataclass(frozen=True)
 class IntentRouteResult:
@@ -176,17 +171,6 @@ def route_intent(query: str) -> IntentRouteResult:
     def _routed(tool: str, signals: tuple[str, ...]) -> IntentRouteResult:
         return IntentRouteResult.routed(
             tool, raw_query=query, normalised_query=normalised, matched_signals=signals,
-        )
-
-    # 0. Location splits (home/away/road) are unsupported — fail safely before routing rather than
-    #    silently answering an all-games query and ignoring the location.
-    if _matches(padded, LOCATION_SIGNALS):
-        return IntentRouteResult.no_route(
-            (ParseError(
-                UNSUPPORTED_QUERY,
-                "Home/away/road splits are not supported; ask without a location.",
-            ),),
-            raw_query=query, normalised_query=normalised,
         )
 
     # 1. head_to_head — strong signals, or a bare "against" that is not "points against".

@@ -26,7 +26,6 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 NO_PARSE_QUERIES = {
     "Who is better?", "Tell me about Boston", "What happened last night?", "Top teams",
     "Warriors recent form", "Warriors last few games", "Show me recent Warriors games",
-    "Warriors advanced profile at home", "Lakers record away",  # location splits -> unsupported
 }
 AMBIGUOUS_QUERIES = {"Compare Lakers and Celtics", "Compare LA teams"}
 INCOMPLETE_QUERY_CODES = {

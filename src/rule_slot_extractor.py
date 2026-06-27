@@ -84,6 +84,8 @@ _BLOCKED_TOKENS = frozenset({
     # broad-profile / comparison vocabulary (so these never leak as a typo team candidate)
     "advanced", "profile", "performing", "performance", "summarise", "summarize",
     "defense", "defenses", "defence", "defences",
+    # venue / location context (extracted separately as the location slot)
+    "home", "away", "road", "neutral", "site", "court", "venue",
     # special/exhibition team components: full phrases ("Team World") are matched by the
     # gazetteer and extracted whole; these block a BARE remnant ("World") from leaking as a team.
     "stars", "stripes", "world",
@@ -247,6 +249,29 @@ def _has_vague_time(normalised: str) -> bool:
     return any(f" {expr} " in padded for expr in _VAGUE_TIME_EXPRESSIONS)
 
 
+# Venue split: "away"/"on the road" -> away; "home"/"at home" -> home. Whole-phrase, deterministic.
+_AWAY_SIGNALS = ("away", "road")
+_HOME_SIGNALS = ("home",)
+# Venue modifiers we do NOT support (the dataset is home/away only). Extracted as a raw, invalid
+# location so the validator rejects it (invalid_location) rather than silently ignoring the modifier.
+_UNSUPPORTED_VENUE_SIGNALS = ("neutral",)
+
+
+def _extract_location(normalised: str) -> Optional[str]:
+    """Return a raw venue slot: ``"home"``/``"away"`` for a supported split, the literal modifier for
+    an UNSUPPORTED venue (e.g. ``"neutral"`` for "neutral site"/"neutral court"), or ``None`` when no
+    venue context is present. Raw slot only — the validator decides validity, so a venue modifier is
+    never silently ignored. Unsupported venues are checked first; otherwise away wins ties."""
+    padded = f" {normalised} "
+    if any(f" {s} " in padded for s in _UNSUPPORTED_VENUE_SIGNALS):
+        return "neutral"
+    if any(f" {s} " in padded for s in _AWAY_SIGNALS):
+        return "away"
+    if any(f" {s} " in padded for s in _HOME_SIGNALS):
+        return "home"
+    return None
+
+
 # --- team extraction --------------------------------------------------------
 
 def _extract_one_team(text: str) -> tuple[Optional[str], tuple[str, ...]]:
@@ -305,6 +330,10 @@ def extract_slots(query: str, *, tool_name: str) -> SlotExtractionResult:
 
     meta = dict(raw_query=query, normalised_query=normalised, tool_name=tool_name)
 
+    # Location is a RAW slot, extracted for any tool. The validator rejects it for tools that do not
+    # accept a venue split (top_scoring_teams / head_to_head), so it is never silently ignored.
+    location = _extract_location(normalised)
+
     # Ranking tool: optional n + optional season_id, no team, no required slots.
     if tool_name == RANKING_TOOL:
         arguments: dict[str, object] = {}
@@ -314,6 +343,8 @@ def extract_slots(query: str, *, tool_name: str) -> SlotExtractionResult:
             arguments["n"] = n
         if season_id is not None:
             arguments["season_id"] = season_id
+        if location is not None:
+            arguments["location"] = location
         return SlotExtractionResult.extracted(arguments, **meta)
 
     errors: list[ParseError] = []
@@ -330,6 +361,10 @@ def extract_slots(query: str, *, tool_name: str) -> SlotExtractionResult:
             "Vague time expression; specify an explicit number of games (e.g. 'last 5 games').",
             field="window",
         ))
+
+    # Location split (raw; validity decided by the validator per tool).
+    if location is not None:
+        arguments["location"] = location
 
     # Teams.
     if tool_name == H2H_TOOL:

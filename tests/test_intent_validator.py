@@ -166,6 +166,36 @@ def test_schema_driven_allowed_args(context) -> None:
     assert "unexpected_argument" in _codes(res)
 
 
+# --- 4b. location (home/away contextual splits) -----------------------------
+
+@pytest.mark.parametrize("loc", ["home", "away", None])
+def test_location_home_away_none_valid(context, loc) -> None:
+    args = {"team": "Boston Celtics"} | ({"location": loc} if loc is not None else {})
+    assert validate_intent(ParsedIntent("team_record", args, "rule"), context=context).is_valid
+
+
+def test_validator_rejects_neutral_location(context) -> None:
+    # the unsupported "neutral" venue (emitted as a raw slot) must be rejected, not ignored.
+    res = validate_intent(
+        ParsedIntent("team_record", {"team": "Boston Celtics", "location": "neutral"}, "rule"),
+        context=context)
+    assert not res.is_valid and "invalid_location" in _codes(res)
+
+
+def test_validator_rejects_location_on_top_scoring(context) -> None:
+    res = validate_intent(
+        ParsedIntent("top_scoring_teams", {"n": 5, "location": "home"}, "rule"), context=context)
+    assert "unexpected_argument" in _codes(res)
+
+
+@pytest.mark.parametrize("bad", [True, 1, ["home"]])
+def test_validator_rejects_non_string_location(context, bad) -> None:
+    res = validate_intent(
+        ParsedIntent("team_record", {"team": "Boston Celtics", "location": bad}, "rule"),
+        context=context)
+    assert "invalid_argument_type" in _codes(res)
+
+
 # --- 5. Type validation -----------------------------------------------------
 
 def test_string_window_invalid_type(context) -> None:
@@ -346,7 +376,7 @@ def test_validator_has_no_registry_dependency() -> None:
 
 
 _TYPE_SAMPLES = {
-    "str": "x", "int": 5, "int|null": 5, "float": 1.5, "float|null": 1.5,
+    "str": "x", "str|null": "x", "int": 5, "int|null": 5, "float": 1.5, "float|null": 1.5,
     "bool": True, "bool|null": True,
 }
 

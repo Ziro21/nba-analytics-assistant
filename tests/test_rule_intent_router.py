@@ -40,8 +40,6 @@ NO_ROUTE_QUERIES = {
     "Warriors recent form",         # no metric keyword
     "Warriors last few games",      # no metric keyword
     "Show me recent Warriors games",  # no metric keyword
-    "Warriors advanced profile at home",  # location split -> unsupported
-    "Lakers record away",                 # location split -> unsupported
 }
 AMBIGUOUS_QUERIES = {
     "Compare Lakers and Celtics",

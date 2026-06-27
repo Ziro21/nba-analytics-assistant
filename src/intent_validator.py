@@ -17,6 +17,7 @@ from src.intent_types import (
     AMBIGUOUS_TEAM,
     ARGUMENTS_NOT_DICT,
     INVALID_ARGUMENT_TYPE,
+    INVALID_LOCATION,
     INVALID_N,
     INVALID_PARSER_MODE,
     INVALID_SEASON_ID,
@@ -197,6 +198,14 @@ def validate_intent(intent: ParsedIntent, *, context: ValidationContext) -> Vali
                 message=f"season_id {season_id!r} is not a known season identifier.",
                 field="season_id", value=season_id,
                 suggestions=tuple(str(s) for s in context.valid_season_ids),
+            ))
+    if "location" in provided and "location" in allowed and type_ok.get("location", False):
+        location = args["location"]
+        if location is not None and location not in ("home", "away"):
+            errors.append(ValidationError(
+                code=INVALID_LOCATION,
+                message=f"location must be 'home' or 'away', got {location!r}.",
+                field="location", value=location, suggestions=("home", "away"),
             ))
 
     # Head-to-head same-team check — only when both teams resolved (no cascade).

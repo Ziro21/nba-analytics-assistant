@@ -1,8 +1,8 @@
-"""Phase 6A/6B tests: tool registry foundation and the six registered analytical tools.
+"""Phase 6A/6B tests: tool registry foundation and the seven registered analytical tools.
 
 Phase 6A tests use isolated dummy tools and fresh ``ToolRegistry()`` instances so the
 default registry is never polluted. Phase 6B tests exercise the populated
-``DEFAULT_REGISTRY`` (the six real tools) end to end. No network, no LLM.
+``DEFAULT_REGISTRY`` (the seven real tools) end to end. No network, no LLM.
 """
 
 from __future__ import annotations
@@ -135,8 +135,8 @@ def test_empty_registry() -> None:
     assert reg.is_registered("anything") is False
 
 
-# Note: DEFAULT_REGISTRY is empty until Phase 6B registers the six tools; its populated
-# state is asserted by test_default_registry_has_exactly_six_tools_in_order below.
+# Note: DEFAULT_REGISTRY is empty until Phase 6B registers the tools; its populated
+# state is asserted by test_default_registry_has_exactly_seven_tools_in_order below.
 
 
 # --- Test 4: register dummy -------------------------------------------------
@@ -348,23 +348,24 @@ def test_no_later_layer_systems_exist() -> None:
 
 
 # ===========================================================================
-# Phase 6B — the six real analytical tools registered in DEFAULT_REGISTRY
+# Phase 6B — the seven real analytical tools registered in DEFAULT_REGISTRY
 # ===========================================================================
 
 DUMMY_NAMES = ("dummy_team_tool", "dummy_noarg_tool", "dummy_raising_tool")
 
 # Expected user-facing parameters per tool: {name: (type, required, default)}.
+_LOC = ("str|null", False, None)
 EXPECTED_PARAMS = {
-    "team_average_points": {"team": ("str", True, None), "window": ("int|null", False, None)},
-    "average_points_allowed": {"team": ("str", True, None), "window": ("int|null", False, None)},
-    "team_record": {"team": ("str", True, None), "window": ("int|null", False, None)},
+    "team_average_points": {"team": ("str", True, None), "window": ("int|null", False, None), "location": _LOC},
+    "average_points_allowed": {"team": ("str", True, None), "window": ("int|null", False, None), "location": _LOC},
+    "team_record": {"team": ("str", True, None), "window": ("int|null", False, None), "location": _LOC},
     "top_scoring_teams": {"n": ("int", False, 5), "season_id": ("int|null", False, None)},
     "head_to_head": {
         "team_a": ("str", True, None), "team_b": ("str", True, None),
         "window": ("int|null", False, None),
     },
-    "team_efficiency_summary": {"team": ("str", True, None), "window": ("int|null", False, None)},
-    "team_advanced_profile": {"team": ("str", True, None), "window": ("int|null", False, None)},
+    "team_efficiency_summary": {"team": ("str", True, None), "window": ("int|null", False, None), "location": _LOC},
+    "team_advanced_profile": {"team": ("str", True, None), "window": ("int|null", False, None), "location": _LOC},
 }
 
 
@@ -431,7 +432,7 @@ def test_schema_returns_safe_copy() -> None:
     s1["parameters"].append({"injected": True})
     s2 = schema("team_average_points")
     assert s2["name"] == "team_average_points"
-    assert len(s2["parameters"]) == 2
+    assert len(s2["parameters"]) == 3  # team, window, location
     assert "function" not in s2
 
 
