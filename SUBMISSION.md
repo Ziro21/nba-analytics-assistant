@@ -19,7 +19,8 @@ no betting prediction, no arbitrary question answering, no enabled LLM parser, a
 - **Tool registry and structured tool results** — eight registered tools dispatched through one
   registry, each returning a uniform result contract.
 - **Assistant result contract** — a single JSON-safe `AssistantResult` for every outcome.
-- **CLI demo** — a thin, scriptable interface with deterministic exit codes.
+- **CLI demo** — a thin, scriptable interface with deterministic exit codes; an optional
+  `--pretty` Rich terminal mode (presentation only, optional dependency) for nicer output.
 - **Layered tests and final acceptance gates** — a large regression suite plus end-of-phase
   acceptance gates and a final delivery gate.
 - **Strong scope and safety boundaries** — enforced and machine-checked (import-scope guards,

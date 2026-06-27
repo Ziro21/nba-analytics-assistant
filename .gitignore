@@ -22,5 +22,12 @@ _working/
 take_at_home_task.pdf
 *Development Plan*.md
 
+# Paused UI-phase planning notes (UI work is deferred; these resume with that phase, not now).
+# Kept on disk, deliberately untracked. Reversible — remove these lines to track them.
+docs/pre_ui_core_improvement_recommendation.md
+docs/ui_implementation_plan.md
+docs/ui_recommendation.md
+docs/ui_research.md
+
 # OS noise
 .DS_Store

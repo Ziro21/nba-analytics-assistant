@@ -17,6 +17,8 @@ network access or API key is required.
 - Production assistant orchestrator (`answer_query`).
 - Runtime bootstrap (`AssistantRuntime`, `build_default_runtime`).
 - Command-line demo (`python -m src.cli`) with deterministic exit codes.
+- Optional Rich terminal presentation mode (`python -m src.cli --pretty`) — presentation only; the
+  optional `rich` dependency lives in `requirements-rich.txt`, never in the core requirements.
 - Documentation (README, architecture, usage examples, testing/quality) and a final delivery
   acceptance gate.
 
