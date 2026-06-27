@@ -70,7 +70,9 @@ Several tests exist specifically to keep the safety boundaries honest:
   pandas import; data loading lives only in the runtime.
 - **No direct tool calls** — neither the assistant nor the CLI calls a tool directly; the registry
   is the only dispatch path.
-- **No out-of-scope modules** — there is no LLM parser, web, API, database, RAG, or agent module.
+- **No out-of-scope modules** — no web, API, database, RAG, or agent module, and no LLM
+  response-generation layer; the only LLM-related code is an optional, offline, validator-gated
+  LLM-ready query-interpretation interface that is disabled by default and needs no provider.
 - **Malformed input fails closed** — malformed tool results or warning shapes become an
   internal-error result, never a crash or a fabricated answer.
 - **Registry execution gating** — a tool runs only after a successful parse and a successful

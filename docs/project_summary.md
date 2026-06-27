@@ -35,8 +35,8 @@ A fixed, single-direction pipeline, with one responsibility per layer:
 
 ## Why the design is safe
 
-- **No LLM-calculated statistics** — there is no LLM in the build; every figure is a pandas
-  calculation over the dataset.
+- **No LLM-calculated statistics** — no LLM is bundled or required (the optional LLM-ready parser
+  interface is offline and disabled by default); every figure is a pandas calculation over the dataset.
 - **The parser does not execute** — it only proposes structure for the validator to judge.
 - **The validator protects the tools** — only canonicalised, valid requests reach the registry.
 - **The registry controls dispatch** — nothing calls a tool directly.
