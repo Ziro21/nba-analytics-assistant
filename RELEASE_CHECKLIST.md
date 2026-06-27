@@ -55,6 +55,6 @@ The release is intentionally bounded:
 
 - No live data — a fixed bundled CSV is the only input.
 - No betting odds prediction and no prediction engine.
-- No arbitrary basketball Q&A — only the seven supported families are answered.
-- No LLM parser is enabled in this build.
+- No arbitrary basketball Q&A — only the eight supported families are answered.
+- No LLM parser is enabled by default (an optional, offline LLM-ready interface exists but is not required).
 - No web/API/RAG/agent system — the only interface is the command line.

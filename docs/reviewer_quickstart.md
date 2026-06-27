@@ -6,8 +6,9 @@ A five-minute path through the project. Everything runs offline; no API key or n
 
 ```bash
 python -m venv .venv
-source .venv/bin/activate          # Windows: .venv\Scripts\activate
-pip install -r requirements.txt    # pandas + pytest only
+source .venv/bin/activate              # Windows: .venv\Scripts\activate
+pip install -r requirements.txt        # pandas + pytest only (the full assistant runs on these)
+pip install -r requirements-rich.txt   # optional: enables the `--pretty` Rich terminal mode
 ```
 
 ## 2. Run representative CLI commands
@@ -15,13 +16,15 @@ pip install -r requirements.txt    # pandas + pytest only
 ```bash
 python -m src.cli "How many points do the Warriors average over the last 5 games?"
 python -m src.cli "Top 5 scoring teams"
+python -m src.cli "Compare Warriors and Celtics over the last 10 games"
 python -m src.cli --json "Celtics vs Heat head to head"
+python -m src.cli --pretty "Top 5 scoring teams"   # optional Rich table (needs requirements-rich.txt)
 python -m src.cli "How many points do LA average?"
 ```
 
-Expected: the first three return answers (the last as JSON); `LA` is ambiguous and returns a safe
-clarification rather than guessing. Exit codes: `0` for an answer, `1` for clarification/unsupported,
-`2` for an error or invalid arguments.
+Expected: the analytics queries return answers (`--json` as structured JSON, `--pretty` as a Rich
+table); `LA` is ambiguous and returns a safe clarification rather than guessing. Exit codes: `0` for
+an answer, `1` for clarification/unsupported, `2` for an error or invalid arguments.
 
 ## 3. Run the tests
 
@@ -44,6 +47,8 @@ The full suite is offline and deterministic.
 | [src/tool_registry.py](../src/tool_registry.py) | the only dispatch path |
 | [src/tools.py](../src/tools.py) | the only statistics-calculation layer (pandas) |
 | [tests/test_delivery_final.py](../tests/test_delivery_final.py) | final delivery acceptance gate |
+| [tests/test_oracle_correctness.py](../tests/test_oracle_correctness.py) | independent oracle: recomputes every tool's answer a second way and checks derivations against the raw CSV |
+| [tests/test_adversarial_robustness.py](../tests/test_adversarial_robustness.py) | fail-closed robustness, cross-feature parity, and seeded fuzz |
 | [README.md](../README.md) | overview, usage, limitations |
 | [docs/architecture.md](architecture.md) | layer responsibilities and safety boundaries |
 
