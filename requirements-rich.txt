@@ -1,0 +1,5 @@
+# Optional dependency for the Rich terminal presentation mode (`python -m src.cli --pretty`).
+# The core assistant, CLI, JSON output, and full test suite run WITHOUT this — they need only the
+# packages in requirements.txt (pandas + pytest). Install this only to enable pretty terminal output:
+#     pip install -r requirements-rich.txt
+rich==13.7.1

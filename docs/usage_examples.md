@@ -101,6 +101,32 @@ A compact view of the shape (the real payload also includes `data` and `meta`):
 
 JSON output is deterministic (`sort_keys=True`) and always valid JSON.
 
+## Optional Rich pretty mode
+
+`--pretty` renders the same `AssistantResult` in a polished terminal layout — a panel for messages, a
+table for `compare_team_profiles` and `top_scoring_teams`, and a static-dataset footer:
+
+```bash
+python -m src.cli --pretty "Compare Warriors and Celtics over the last 10 games."
+# Team comparison
+#   Team                    Games   W-L     PPG     OPP    ORTG    DRTG    Net
+#  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#   Golden State Warriors      10   4-6   110.9   114.7   105.6   109.2   -3.6
+#   Boston Celtics             10   7-3   108.5   100.7   107.0   101.9   +5.0
+# (PPG = points scored, OPP = points allowed, Net = net rating)
+# ╭─ SUMMARY ─────────────────────────────────────────────────────────────────╮
+# │ Boston Celtics had the stronger profile over this selected sample based on │
+# │ net rating.                                                                │
+# ╰───────────────────────────────────────────────────────────────────────────╯
+# Static dataset mode — no live scores, odds, injuries, or betting recommendations.
+```
+
+`--pretty` is a **Rich terminal presentation layer only**: it does not change parsing, validation,
+analytics, result calculation, exit codes, or JSON output — it just re-renders the existing result.
+It needs the optional `rich` dependency (`pip install -r requirements-rich.txt`); without it,
+`--pretty` prints an install hint and exits, while the plain and `--json` modes still work.
+`--pretty` and `--json` are mutually exclusive.
+
 ## Safe failure examples
 
 The assistant explains why it cannot answer; it never guesses a number.

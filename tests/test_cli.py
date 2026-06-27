@@ -132,6 +132,65 @@ def test_cli_parser_llm_error_message_is_stderr_only(monkeypatch, capsys) -> Non
     assert "not configured" in out.err.lower()
 
 
+# --- 11.1d --pretty (optional Rich presentation; wiring only — no Rich import needed) ----
+
+class _SpyRenderer:
+    """Stand-in for the Rich renderer: records the result it is asked to render."""
+
+    def __init__(self):
+        self.calls: list[object] = []
+
+    def __call__(self, result):
+        self.calls.append(result)
+
+
+def test_pretty_and_json_are_mutually_exclusive(capsys) -> None:
+    code = main(["--pretty", "--json", "Compare Warriors and Celtics"])
+    err = capsys.readouterr().err
+    assert code == 2                        # argparse mutual-exclusion error
+    assert "not allowed with" in err and "Traceback" not in err
+
+
+def test_pretty_missing_rich_fails_closed(monkeypatch, capsys) -> None:
+    monkeypatch.setattr(runtime_module, "build_default_runtime",
+                        lambda: (_ for _ in ()).throw(AssertionError("must not bootstrap")))
+    monkeypatch.setattr(cli, "_load_rich_renderer", lambda: None)  # simulate Rich not installed
+    code = main(["--pretty", "Compare Warriors and Celtics over the last 10 games."])
+    out = capsys.readouterr()
+    assert code == 2                        # fails closed before bootstrapping the dataset
+    assert out.out == ""                    # nothing on stdout
+    assert "requirements-rich.txt" in out.err and "Traceback" not in out.err
+
+
+def test_pretty_renders_result_via_seam(monkeypatch) -> None:
+    fake = _install(monkeypatch, FakeRuntime(status="answer", tool_name="team_average_points",
+                                             message="ok"))
+    spy = _SpyRenderer()
+    monkeypatch.setattr(cli, "_load_rich_renderer", lambda: spy)
+    assert main(["--pretty", "Warriors average points"]) == 0
+    assert fake.queries == ["Warriors average points"]
+    assert len(spy.calls) == 1 and spy.calls[0].status == "answer"  # the renderer rendered the result
+
+
+@pytest.mark.parametrize("status,code", [
+    ("answer", 0), ("clarification_needed", 1), ("unsupported", 1), ("error", 2),
+])
+def test_pretty_exit_code_parity_with_plain(status, code, monkeypatch) -> None:
+    _install(monkeypatch, FakeRuntime(status=status))
+    assert main(["some query"]) == code                       # plain
+    _install(monkeypatch, FakeRuntime(status=status))
+    monkeypatch.setattr(cli, "_load_rich_renderer", lambda: _SpyRenderer())
+    assert main(["--pretty", "some query"]) == code           # pretty -> identical exit code
+
+
+def test_pretty_does_not_use_plain_or_json_printer(monkeypatch, capsys) -> None:
+    _install(monkeypatch, FakeRuntime(status="answer", message="PLAIN-TEXT-MARKER"))
+    monkeypatch.setattr(cli, "_load_rich_renderer", lambda: _SpyRenderer())
+    main(["--pretty", "q"])
+    # the spy renders nothing, so the plain message must NOT have been printed by the CLI
+    assert "PLAIN-TEXT-MARKER" not in capsys.readouterr().out
+
+
 # --- 11.2 successful human-readable output ----------------------------------
 
 def test_answer_human_readable(monkeypatch, capsys) -> None:

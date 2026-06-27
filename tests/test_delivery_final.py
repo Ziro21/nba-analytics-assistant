@@ -159,12 +159,24 @@ def test_delivery_key_test_layers_exist() -> None:
 
 # --- 6. packaging / configuration -------------------------------------------
 
+def _packages(path: Path) -> set:
+    lines = [ln.strip() for ln in path.read_text().splitlines()]
+    return {ln.split("==")[0].split(">=")[0].strip().lower()
+            for ln in lines if ln and not ln.startswith("#")}
+
+
 def test_delivery_requirements_are_minimal() -> None:
-    # the exact-set check guarantees no extra (LLM/web/API/...) dependency was added.
-    lines = [ln.strip() for ln in (REPO_ROOT / "requirements.txt").read_text().splitlines()]
-    packages = {ln.split("==")[0].split(">=")[0].strip().lower()
-                for ln in lines if ln and not ln.startswith("#")}
-    assert packages == {"pandas", "pytest"}, packages
+    # the exact-set check guarantees no extra (LLM/web/API/rich/...) dependency was added to the CORE.
+    assert _packages(REPO_ROOT / "requirements.txt") == {"pandas", "pytest"}
+
+
+def test_rich_is_an_optional_dependency_only() -> None:
+    # Rich (pretty terminal mode) must never become a core dependency — it lives in its own optional
+    # file, so `pip install -r requirements.txt` keeps the assistant minimal and deterministic.
+    assert "rich" not in _packages(REPO_ROOT / "requirements.txt")
+    rich_file = REPO_ROOT / "requirements-rich.txt"
+    assert rich_file.exists(), "requirements-rich.txt (optional pretty-mode dependency) is missing"
+    assert "rich" in _packages(rich_file)
 
 
 def test_delivery_packaging_entry_point_is_consistent_if_present() -> None:

@@ -90,10 +90,16 @@ Requires Python 3.12+.
 ```bash
 python -m venv .venv
 source .venv/bin/activate        # Windows: .venv\Scripts\activate
-pip install -r requirements.txt  # pandas + pytest only
+pip install -r requirements.txt  # pandas + pytest only — the full assistant runs on these alone
 ```
 
 No API key and no network access are required.
+
+**Optional** — for the Rich pretty terminal mode only (`--pretty`):
+
+```bash
+pip install -r requirements-rich.txt  # adds 'rich'; presentation only, not needed for the core
+```
 
 ## Running the CLI
 
@@ -112,6 +118,19 @@ Structured JSON (the full `AssistantResult.to_dict()`):
 ```bash
 python -m src.cli --json "Celtics vs Heat head to head"
 ```
+
+**Optional Rich pretty mode** (`--pretty`) renders the same answer in a polished terminal layout —
+panels for messages and tables for comparisons/rankings:
+
+```bash
+python -m src.cli --pretty "Compare Warriors and Celtics over the last 10 games."   # a comparison table
+python -m src.cli --pretty "Top 5 scoring teams."                                   # a ranking table
+```
+
+`--pretty` is a **terminal presentation layer only**: it does not change query parsing, validation,
+analytics, result calculation, exit codes, or JSON output. It needs the optional `rich` dependency
+(install above); without it, `--pretty` prints an install hint and exits — the plain and `--json`
+modes always work. `--pretty` and `--json` cannot be combined.
 
 Safe failures (the assistant explains, it never guesses):
 

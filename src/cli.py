@@ -37,6 +37,10 @@ LLM_NOT_CONFIGURED_MESSAGE = (
     "deterministic, and needs no API key). The default rule parser remains available with "
     "--parser rule. See docs/llm_integration_design.md."
 )
+RICH_NOT_INSTALLED_MESSAGE = (
+    "Pretty mode requires the optional Rich dependency.\n"
+    "Install it with: pip install -r requirements-rich.txt"
+)
 
 EXIT_OK = 0          # answer
 EXIT_CLARIFY = 1     # clarification_needed / unsupported
@@ -56,9 +60,16 @@ def _build_parser() -> argparse.ArgumentParser:
         description="Ask the deterministic NBA analytics assistant one question.",
     )
     parser.add_argument("query", nargs="*", help="the natural-language question")
-    parser.add_argument(
+    # Output modes are mutually exclusive: plain text (default), structured --json, or pretty Rich.
+    output_mode = parser.add_mutually_exclusive_group()
+    output_mode.add_argument(
         "--json", action="store_true", dest="as_json",
         help="print the full structured AssistantResult as JSON",
+    )
+    output_mode.add_argument(
+        "--pretty", action="store_true", dest="pretty",
+        help="render the answer with the optional Rich terminal presentation layer "
+             "(needs 'pip install -r requirements-rich.txt'; presentation only)",
     )
     parser.add_argument(
         "--version", action="version", version=f"{PROG} {__version__}",
@@ -82,6 +93,20 @@ def _print_result(result: AssistantResult, *, as_json: bool) -> None:
         print(f"  note: {warning.message}")
 
 
+def _load_rich_renderer():
+    """Lazily import the optional Rich renderer; return its ``render_result`` callable, or ``None``
+    if the optional ``rich`` dependency is not installed.
+
+    Isolated as a single seam so importing ``src.cli`` never imports Rich (the import only happens
+    when ``--pretty`` is used) and so the missing-dependency path is trivial to monkeypatch in tests.
+    """
+    try:
+        from src.rich_renderer import render_result
+    except ImportError:
+        return None
+    return render_result
+
+
 def main(argv: Optional[Sequence[str]] = None) -> int:
     """CLI entry point. Returns a deterministic exit code; never raises for normal paths."""
     parser = _build_parser()
@@ -102,6 +127,15 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         print(LLM_NOT_CONFIGURED_MESSAGE, file=sys.stderr)
         return EXIT_ERROR
 
+    # Pretty mode is presentation only and needs the optional Rich dependency. Resolve it BEFORE the
+    # dataset is loaded so a missing dependency fails fast (exit 2) without doing real work.
+    renderer = None
+    if args.pretty:
+        renderer = _load_rich_renderer()
+        if renderer is None:
+            print(RICH_NOT_INSTALLED_MESSAGE, file=sys.stderr)
+            return EXIT_ERROR
+
     try:
         from src.assistant_runtime import build_default_runtime  # lazy: data load happens here, not at import
         runtime = build_default_runtime()
@@ -110,7 +144,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         return EXIT_ERROR
 
     result = runtime.answer(query)
-    _print_result(result, as_json=args.as_json)
+    if renderer is not None:
+        renderer(result)  # pretty presentation to stdout; status/message/exit code are unchanged
+    else:
+        _print_result(result, as_json=args.as_json)
     return _EXIT_BY_STATUS.get(result.status, EXIT_ERROR)
 
 
