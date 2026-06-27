@@ -28,6 +28,7 @@ from src.tool_results import ToolResult, error_result
 from src.tools import (
     average_points_allowed,
     head_to_head,
+    team_advanced_profile,
     team_average_points,
     team_efficiency_summary,
     team_record,
@@ -291,6 +292,12 @@ def build_default_registry() -> ToolRegistry:
         description="Average per-game offensive rating, defensive rating, net rating, and possessions for a team.",
         parameters=_team_window_params(),
         function=team_efficiency_summary,
+    ))
+    registry.register(ToolSpec(
+        name="team_advanced_profile",
+        description="Broad performance profile for a team: record, points scored and allowed, and pace-adjusted ratings over all available games or the last N games.",
+        parameters=_team_window_params(),
+        function=team_advanced_profile,
     ))
     return registry
 

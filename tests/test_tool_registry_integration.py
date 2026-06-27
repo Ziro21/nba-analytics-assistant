@@ -51,6 +51,9 @@ DIRECT_VS_REGISTRY = [
     ("team_efficiency_summary",
      lambda c: tools.team_efficiency_summary(c, "Boston Celtics", window=10),
      {"team": "Boston Celtics", "window": 10}),
+    ("team_advanced_profile",
+     lambda c: tools.team_advanced_profile(c, "Golden State Warriors", window=5),
+     {"team": "Golden State Warriors", "window": 5}),
 ]
 
 
@@ -67,8 +70,8 @@ def test_registry_matches_direct_tool_call(clean_df, name, direct_call, args) ->
 
 def test_registry_construction_is_data_free() -> None:
     # Building the registry and exporting schemas requires no dataset.
-    assert len(build_default_registry().schemas()) == 6
-    assert len(schemas()) == 6  # default registry was built at import, data-free
+    assert len(build_default_registry().schemas()) == 7
+    assert len(schemas()) == 7  # default registry was built at import, data-free
 
 
 def test_registry_construction_does_not_read_dataset(monkeypatch) -> None:
@@ -76,7 +79,7 @@ def test_registry_construction_does_not_read_dataset(monkeypatch) -> None:
         raise AssertionError("read_csv must not be called during registry construction.")
 
     monkeypatch.setattr(pd, "read_csv", boom)
-    assert len(build_default_registry().schemas()) == 6
+    assert len(build_default_registry().schemas()) == 7
 
 
 def test_imports_are_acyclic() -> None:

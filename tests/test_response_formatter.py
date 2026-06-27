@@ -215,6 +215,7 @@ def test_supported_tool_catalogue_is_exact() -> None:
         "top_scoring_teams",
         "head_to_head",
         "team_efficiency_summary",
+        "team_advanced_profile",
     }
 
 
@@ -390,8 +391,8 @@ def test_no_parse_message_lists_supported_families() -> None:
     message = result.message.lower()
     assert result.status == ASSISTANT_STATUS_UNSUPPORTED
     assert "supported nba analytics questions" in message
-    # names concrete families so the user learns what they CAN ask
-    for family in ("average", "record", "top scoring", "head-to-head", "efficiency"):
+    # names concrete families so the user learns what they CAN ask (kept in sync with the tools)
+    for family in ("average", "record", "top scoring", "head-to-head", "efficiency", "profile"):
         assert family in message, family
     assert result.errors[0].code == UNSUPPORTED_QUERY            # structured error unchanged
     json.dumps(result.to_dict())

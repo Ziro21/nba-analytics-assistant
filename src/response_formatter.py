@@ -70,6 +70,7 @@ SUPPORTED_TOOL_NAMES = frozenset({
     "top_scoring_teams",
     "head_to_head",
     "team_efficiency_summary",
+    "team_advanced_profile",
 })
 
 
@@ -204,6 +205,19 @@ def _tool_message(tool_name: str, result: Mapping[str, object],
         drtg = _format_number(result["average_drtg"])
         net = _format_number(result["average_net_rating"])
         return f"{team} {_window_phrase(meta)}: ORTG {ortg}, DRTG {drtg}, net rating {net}."
+
+    if tool_name == "team_advanced_profile":
+        team = result["team"]
+        record = result["record"]
+        points_for = _format_number(result["average_points_for"], min_decimal=True)
+        points_against = _format_number(result["average_points_against"], min_decimal=True)
+        ortg = _format_number(result["average_ortg"])
+        drtg = _format_number(result["average_drtg"])
+        net = _format_number(result["average_net_rating"])
+        return (
+            f"{team} {_window_phrase(meta)}: {record} record, {points_for} points scored per game, "
+            f"{points_against} points allowed, {ortg} ORTG, {drtg} DRTG, and {net} net rating."
+        )
 
     raise KeyError(f"unsupported tool {tool_name!r}")
 
@@ -432,8 +446,8 @@ def format_parse_failure(
     if parse_result.status == PARSE_STATUS_NO_PARSE:
         return AssistantResult.unsupported(
             "I can only answer supported NBA analytics questions, such as team averages, "
-            "points allowed, records, top scoring teams, head-to-head records, and "
-            "efficiency summaries.",
+            "points allowed, records, top scoring teams, head-to-head records, efficiency "
+            "summaries, and advanced team profiles.",
             errors,
             query=result_query,
             warnings=warnings,

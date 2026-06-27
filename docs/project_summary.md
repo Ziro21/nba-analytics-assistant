@@ -11,7 +11,8 @@ and returned as a structured, user-facing result through a command-line demo.
 
 A sports-analytics user often wants fast, repeatable answers to common team-level NBA performance
 questions from a structured dataset — average points, points allowed, record, top scoring teams,
-head-to-head, efficiency. The challenge is to accept natural-language-style queries while
+head-to-head, efficiency, and broad advanced profiles. The challenge is to accept
+natural-language-style queries while
 preventing two failure modes: **hallucinated statistics** (a number the data does not support) and
 **unsafe free-form answers** (responding confidently to an unsupported or ambiguous request).
 
@@ -19,7 +20,7 @@ preventing two failure modes: **hallucinated statistics** (a number the data doe
 
 A fixed, single-direction pipeline, with one responsibility per layer:
 
-- **Deterministic rule parser** — normalises the query, routes it to one of six tools, and extracts
+- **Deterministic rule parser** — normalises the query, routes it to one of seven tools, and extracts
   raw candidate slots (team, opponent, window, n, season). It validates nothing and executes nothing.
 - **Validator** — canonicalises team names and rejects ambiguous/unknown/special teams; checks
   argument types and domain rules. This is the safety boundary.
@@ -60,7 +61,7 @@ A fixed, single-direction pipeline, with one responsibility per layer:
 questions — like 'how many points do the Warriors average over their last five games?' — but to
 guarantee the answers come only from the data, never from a model guessing. So instead of an LLM, I
 used a rule-based pipeline: a parser extracts the structure of the query, a validator canonicalises
-the team name and rejects anything ambiguous or unsupported, a registry dispatches to one of six
+the team name and rejects anything ambiguous or unsupported, a registry dispatches to one of seven
 pandas tools that do the actual calculation, and a formatter turns the result into a clear sentence.
 Every layer has one job and a tested boundary — the parser never executes, the assistant never
 loads data or computes statistics, and pandas is the only source of truth. If a query is

@@ -61,7 +61,7 @@ def test_submission_contains_required_commands() -> None:
 def test_release_docs_document_supported_query_families() -> None:
     text = (SUBMISSION.read_text() + "\n" + RELEASE_NOTES.read_text()).lower()
     for phrase in ("average points", "points allowed", "record",
-                   "top scoring teams", "head-to-head", "efficiency"):
+                   "top scoring teams", "head-to-head", "efficiency", "advanced profile"):
         assert phrase in text, f"release docs should mention {phrase!r}"
 
 

@@ -408,3 +408,63 @@ def team_efficiency_summary(
         window_requested=window,
     )
     return ok_result(tool, result, meta=meta, warnings=warnings)
+
+
+def team_advanced_profile(
+    clean_df: pd.DataFrame, team: str, window: int | None = None
+) -> ToolResult:
+    """Broad performance profile for a team: record, scoring, and pace-adjusted ratings.
+
+    Composes EXISTING clean-view metrics (no new statistical primitive): win/loss record from
+    ``win_flag``; mean ``points_for`` / ``points_against`` / ``plus_minus``; and mean ``ortg`` /
+    ``drtg`` / ``net_rating`` over the selected games. This is for broad "how are they performing"
+    questions; simple single-metric questions keep their own tools.
+
+    Returns the §4.1 contract. Invalid window → ``status="error"`` (checked first); a team with no
+    games → ``status="no_data"``; an over-long window uses all games with a warning. Values are
+    returned unrounded; the formatter rounds for display. The input is never mutated.
+    """
+    tool = "team_advanced_profile"
+    team_games = filter_team_games(clean_df, team)
+    try:
+        windowed, warnings = apply_window(team_games, window)
+    except ValueError as exc:
+        return error_result(tool, str(exc), meta=build_meta(team=team))
+
+    if windowed.empty:
+        return no_data_result(
+            tool,
+            result={
+                "team": team, "games_used": 0, "wins": 0, "losses": 0, "record": "0-0",
+                "win_percentage": None, "average_points_for": None,
+                "average_points_against": None, "average_plus_minus": None,
+                "average_ortg": None, "average_drtg": None, "average_net_rating": None,
+            },
+            meta=build_meta(team=team, games_used=0, window_requested=window),
+            warnings=[f"No games found for team {team!r}."],
+        )
+
+    games_used = len(windowed)
+    wins = int(windowed["win_flag"].sum())
+    losses = games_used - wins
+    result = {
+        "team": team,
+        "games_used": games_used,
+        "wins": wins,
+        "losses": losses,
+        "record": f"{wins}-{losses}",
+        "win_percentage": wins / games_used,
+        "average_points_for": float(windowed["points_for"].mean()),
+        "average_points_against": float(windowed["points_against"].mean()),
+        "average_plus_minus": float(windowed["plus_minus"].mean()),
+        "average_ortg": float(windowed["ortg"].mean()),
+        "average_drtg": float(windowed["drtg"].mean()),
+        "average_net_rating": float(windowed["net_rating"].mean()),
+    }
+    meta = build_meta(
+        team=team,
+        games_used=games_used,
+        date_range=date_range_for(windowed),
+        window_requested=window,
+    )
+    return ok_result(tool, result, meta=meta, warnings=warnings)

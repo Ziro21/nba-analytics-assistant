@@ -29,10 +29,21 @@ python -m src.cli "Celtics vs Heat head to head"
 
 python -m src.cli "Boston Celtics efficiency last 10 games"
 # Boston Celtics over the last 10 games: ORTG 106.98, DRTG 101.93, net rating 5.05.
+
+python -m src.cli "How are the Warriors performing over the last 5 games?"
+# Golden State Warriors over the last 5 games: 2-3 record, 114.4 points scored per game,
+# 117.0 points allowed, 107.04 ORTG, 109.78 DRTG, and -2.73 net rating.
 ```
 
 Note how the validator canonicalises the team: `Warriors` and `GSW` both become
 `Golden State Warriors` in the answer.
+
+**Simple vs broad answers.** A single-metric question keeps a simple answer; a broad performance
+question (`How are the Warriors performing…`, `advanced profile`, `summarise the Warriors over the
+last 10 games`, `compare the Warriors offense and defense over the last 5 games`) returns a fuller
+**profile** — record, points scored and allowed, and pace-adjusted ratings. Simple answers are never
+auto-enriched with this extra context, and home/away splits are not supported (such queries fail
+safely as unsupported).
 
 ## JSON output
 
@@ -63,8 +74,9 @@ The assistant explains why it cannot answer; it never guesses a number.
 
 ```bash
 python -m src.cli "Who is better?"
-# I can only answer supported NBA analytics questions, such as team averages, points
-# allowed, records, top scoring teams, head-to-head records, and efficiency summaries.  (unsupported)
+# I can only answer supported NBA analytics questions, such as team averages, points allowed,
+# records, top scoring teams, head-to-head records, efficiency summaries, and advanced team
+# profiles.  (unsupported)
 
 python -m src.cli "How many points do LA average?"
 # "LA" is ambiguous. Do you mean Los Angeles Lakers or Los Angeles Clippers?            (clarification_needed)

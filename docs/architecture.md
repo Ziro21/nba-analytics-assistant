@@ -23,8 +23,8 @@ CLI        collects the query and displays the result.
 | --- | --- |
 | `src/rule_parser.py` | Parse a raw query into a `ParsedIntent` (tool + raw candidate arguments) or a structured parse failure. Extracts only — no validation, canonicalisation, execution, or data access. |
 | `src/intent_validator.py` | Validate a `ParsedIntent` against a reference context: canonicalise team names, reject ambiguous/unknown/special teams, check argument types and domain rules. The single safety boundary. |
-| `src/tool_registry.py` | Hold the six registered tools and dispatch a validated call. The only path to tool execution. |
-| `src/tools.py` | The six pandas analytical tools. The only layer that computes statistics, all from the clean dataframe. |
+| `src/tool_registry.py` | Hold the seven registered tools and dispatch a validated call. The only path to tool execution. |
+| `src/tools.py` | The seven pandas analytical tools. The only layer that computes statistics, all from the clean dataframe. |
 | `src/response_formatter.py` | Convert a tool result / parse failure / validation failure into an `AssistantResult`. Pure formatting; computes nothing; fails closed on malformed input. |
 | `src/assistant.py` | Orchestrate parse → validate → execute → format. Thin coordination; imports no pandas, loads no data, calls no tool directly. |
 | `src/assistant_runtime.py` | Bootstrap: load and validate the dataset, build the clean view and validation context, and hold the prepared dependencies. The only place that loads data. |

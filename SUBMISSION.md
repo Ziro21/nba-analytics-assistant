@@ -11,12 +11,12 @@ no betting prediction, no arbitrary question answering, no enabled LLM parser, a
 
 ## What this project demonstrates
 
-- **Deterministic natural-language routing** — a rule parser maps a query to one of six tools; the
+- **Deterministic natural-language routing** — a rule parser maps a query to one of seven tools; the
   same input always produces the same result (no LLM, no network, no randomness).
 - **Safe validation and canonicalisation** — team names are resolved (`Warriors` →
   `Golden State Warriors`); ambiguous, unknown, and special teams are rejected with clear messages.
 - **pandas analytics over a clean dataframe** — every number is a deterministic pandas calculation.
-- **Tool registry and structured tool results** — six registered tools dispatched through one
+- **Tool registry and structured tool results** — seven registered tools dispatched through one
   registry, each returning a uniform result contract.
 - **Assistant result contract** — a single JSON-safe `AssistantResult` for every outcome.
 - **CLI demo** — a thin, scriptable interface with deterministic exit codes.
@@ -47,12 +47,13 @@ python -m pytest tests/ -q
 | Top scoring teams | `Top 5 scoring teams` |
 | Head-to-head record | `Celtics vs Heat head to head` |
 | Team efficiency summary | `Boston Celtics efficiency last 10 games` |
+| Team advanced profile | `How are the Warriors performing over the last 5 games?` |
 
 ## Key limitations
 
 - **No live data** — a fixed bundled CSV is the only input.
 - **No betting odds model** and **no prediction engine** — historical facts only.
-- **No arbitrary basketball Q&A** — only the six families above; anything else fails safely.
+- **No arbitrary basketball Q&A** — only the seven families above; anything else fails safely.
 - **No LLM parser** is enabled in this build — the parser is a deterministic rule engine.
 - **No web/API/RAG/agent layer** — the only interface is the command line.
 - `season_id` values are opaque internal identifiers, not decoded calendar seasons.

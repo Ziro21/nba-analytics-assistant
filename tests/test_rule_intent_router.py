@@ -40,6 +40,8 @@ NO_ROUTE_QUERIES = {
     "Warriors recent form",         # no metric keyword
     "Warriors last few games",      # no metric keyword
     "Show me recent Warriors games",  # no metric keyword
+    "Warriors advanced profile at home",  # location split -> unsupported
+    "Lakers record away",                 # location split -> unsupported
 }
 AMBIGUOUS_QUERIES = {
     "Compare Lakers and Celtics",
@@ -94,7 +96,7 @@ def test_invalid_status_and_missing_pieces_rejected() -> None:
 
 def test_routable_tool_names_match_catalogue() -> None:
     assert set(ROUTABLE_TOOL_NAMES) == set(SUPPORTED_TOOL_NAMES)
-    assert len(ROUTABLE_TOOL_NAMES) == 6
+    assert len(ROUTABLE_TOOL_NAMES) == 7
 
 
 def test_route_result_to_dict_mutation_does_not_affect_object() -> None:

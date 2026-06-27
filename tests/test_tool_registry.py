@@ -37,6 +37,7 @@ EXPECTED_TOOL_ORDER = [
     "top_scoring_teams",
     "head_to_head",
     "team_efficiency_summary",
+    "team_advanced_profile",
 ]
 
 LATER_LAYER_MODULES = (
@@ -363,10 +364,11 @@ EXPECTED_PARAMS = {
         "window": ("int|null", False, None),
     },
     "team_efficiency_summary": {"team": ("str", True, None), "window": ("int|null", False, None)},
+    "team_advanced_profile": {"team": ("str", True, None), "window": ("int|null", False, None)},
 }
 
 
-def test_default_registry_has_exactly_six_tools_in_order() -> None:
+def test_default_registry_has_exactly_seven_tools_in_order() -> None:
     names = [s["name"] for s in DEFAULT_REGISTRY.schemas()]
     assert names == EXPECTED_TOOL_ORDER
 
@@ -386,7 +388,7 @@ def test_module_wrappers_delegate_to_default_registry(clean_df) -> None:
 
 def test_default_schemas_are_json_serialisable() -> None:
     s = schemas()
-    assert isinstance(s, list) and len(s) == 6
+    assert isinstance(s, list) and len(s) == 7
     for entry in s:
         assert {"name", "description", "parameters"} <= set(entry)
         assert "function" not in entry

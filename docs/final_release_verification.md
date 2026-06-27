@@ -8,7 +8,7 @@ independent review and the release-tag decision. It does not create a release ta
 The project is a complete, deterministic NBA analytics assistant over a structured CSV dataset.
 A natural-language query is parsed, validated, dispatched to a registered pandas tool, and
 returned as a structured result, available through a command-line demo and a reusable runtime.
-It supports six natural-language query families, has a layered single-responsibility
+It supports seven natural-language query families, has a layered single-responsibility
 architecture, and ships with a comprehensive offline test suite and a release package.
 
 ## Verified delivery surface
@@ -55,7 +55,7 @@ Each layer has one responsibility and a tested boundary:
 
 - No live data — a fixed bundled CSV is the only input.
 - No betting odds model and no prediction engine.
-- No arbitrary basketball Q&A — only the six supported families are answered.
+- No arbitrary basketball Q&A — only the seven supported families are answered.
 - No LLM parser is enabled in this build.
 - No web/API/RAG/agent system.
 

@@ -24,7 +24,7 @@ from src.rule_parser_types import (
 )
 from src.rule_query_normalisation import normalise_query_text
 
-# The six routable tools (must mirror the registry / Phase 8A SUPPORTED_TOOL_NAMES).
+# The routable tools (must mirror the registry / Phase 8A SUPPORTED_TOOL_NAMES).
 ROUTABLE_TOOL_NAMES = (
     "team_average_points",
     "average_points_allowed",
@@ -32,6 +32,7 @@ ROUTABLE_TOOL_NAMES = (
     "top_scoring_teams",
     "head_to_head",
     "team_efficiency_summary",
+    "team_advanced_profile",
 )
 
 ROUTE_STATUS_ROUTED = "routed"
@@ -63,8 +64,21 @@ AVERAGE_POINTS_SIGNALS = (
     "average points", "points average", "averaging", "how many points", "points scored",
 )
 
-# Generic comparison keyword: ambiguous unless a metric/h2h signal is also present.
+# Broad performance/profile language: a holistic "how are they doing" question, not a single metric.
+PROFILE_SIGNALS = (
+    "advanced profile", "performance profile", "profile",
+    "performing", "performance", "doing",
+    "summarise", "summarize",
+    "offense and defense", "offence and defence",
+)
+
+# Generic comparison keyword: ambiguous unless a metric/h2h/profile signal is also present.
 COMPARE_SIGNAL = "compare"
+
+# Location splits (home/away/road) are NOT implemented; a location-qualified query is unsupported
+# rather than silently answered as all-games. Whole-word signals; no team/alias/supported phrasing
+# contains these, so the supported catalogue is unaffected.
+LOCATION_SIGNALS = ("home", "away", "road")
 
 
 @dataclass(frozen=True)
@@ -164,6 +178,17 @@ def route_intent(query: str) -> IntentRouteResult:
             tool, raw_query=query, normalised_query=normalised, matched_signals=signals,
         )
 
+    # 0. Location splits (home/away/road) are unsupported — fail safely before routing rather than
+    #    silently answering an all-games query and ignoring the location.
+    if _matches(padded, LOCATION_SIGNALS):
+        return IntentRouteResult.no_route(
+            (ParseError(
+                UNSUPPORTED_QUERY,
+                "Home/away/road splits are not supported; ask without a location.",
+            ),),
+            raw_query=query, normalised_query=normalised,
+        )
+
     # 1. head_to_head — strong signals, or a bare "against" that is not "points against".
     strong = _matches(padded, STRONG_H2H_SIGNALS)
     if strong:
@@ -195,6 +220,13 @@ def route_intent(query: str) -> IntentRouteResult:
     average = _matches(padded, AVERAGE_POINTS_SIGNALS)
     if average:
         return _routed("team_average_points", average)
+
+    # 7. team_advanced_profile — broad performance/profile language. Checked AFTER every single-metric
+    #    route (so a simple metric query is never hijacked) and BEFORE generic-compare ambiguity (so
+    #    "compare ... offense and defense" becomes a profile rather than an ambiguous comparison).
+    profile = _matches(padded, PROFILE_SIGNALS)
+    if profile:
+        return _routed("team_advanced_profile", profile)
 
     # Generic comparison with no metric/h2h signal is ambiguous, not a guessed head_to_head.
     # Note: "compare A and B <metric>" (e.g. "...record") routes by the metric above — 8B cannot

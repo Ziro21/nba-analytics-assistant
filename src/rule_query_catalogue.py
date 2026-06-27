@@ -37,6 +37,7 @@ SUPPORTED_TOOL_NAMES = (
     "top_scoring_teams",
     "head_to_head",
     "team_efficiency_summary",
+    "team_advanced_profile",
 )
 
 
@@ -146,6 +147,16 @@ SUPPORTED_QUERY_EXAMPLES = (
             {"team": "Celtics"}),
     _parsed("Warriors net rating", "team_efficiency_summary", {"team": "Warriors"}),
     _parsed("Team efficiency summary for Lakers", "team_efficiency_summary", {"team": "Lakers"}),
+    # team_advanced_profile (broad performance/profile queries; simple metric queries are unaffected)
+    _parsed("How are the Warriors performing over the last 5 games?",
+            "team_advanced_profile", {"team": "Warriors", "window": 5}),
+    _parsed("Give me the Warriors advanced profile over the last 5 games.",
+            "team_advanced_profile", {"team": "Warriors", "window": 5}),
+    _parsed("Summarise the Celtics over the last 10 games.",
+            "team_advanced_profile", {"team": "Celtics", "window": 10}),
+    _parsed("Warriors performance profile", "team_advanced_profile", {"team": "Warriors"}),
+    _parsed("Compare the Warriors offense and defense over the last 5 games.",
+            "team_advanced_profile", {"team": "Warriors", "window": 5}, tags=("compare",)),
 )
 
 
@@ -171,6 +182,9 @@ UNSUPPORTED_QUERY_EXAMPLES = (
     _failed("Celtics efficiency latest games", "incomplete", (UNSUPPORTED_TIME_EXPRESSION,), tags=("vague_time",)),
     _failed("Celtics vs", "incomplete", (MISSING_OPPONENT,), tags=("h2h_incomplete",)),
     _failed("vs Heat", "incomplete", (MISSING_TEAM,), tags=("h2h_incomplete",)),
+    # location splits are not supported -> unsupported, never silently ignored
+    _failed("Warriors advanced profile at home", "no_parse", (UNSUPPORTED_QUERY,), tags=("location",)),
+    _failed("Lakers record away", "no_parse", (UNSUPPORTED_QUERY,), tags=("location",)),
 )
 
 ALL_QUERY_EXAMPLES = SUPPORTED_QUERY_EXAMPLES + UNSUPPORTED_QUERY_EXAMPLES

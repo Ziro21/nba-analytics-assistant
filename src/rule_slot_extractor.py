@@ -37,7 +37,8 @@ SLOT_STATUS_UNSUPPORTED = "unsupported"
 SLOT_STATUSES = (SLOT_STATUS_EXTRACTED, SLOT_STATUS_INCOMPLETE, SLOT_STATUS_UNSUPPORTED)
 
 SINGLE_TEAM_TOOLS = frozenset(
-    {"team_average_points", "average_points_allowed", "team_record", "team_efficiency_summary"}
+    {"team_average_points", "average_points_allowed", "team_record", "team_efficiency_summary",
+     "team_advanced_profile"}
 )
 WINDOW_TOOLS = SINGLE_TEAM_TOOLS | {"head_to_head"}
 H2H_TOOL = "head_to_head"
@@ -80,6 +81,9 @@ _BLOCKED_TOKENS = frozenset({
     "win", "wins", "loss", "losses", "versus", "vs", "against", "matchup", "h2h", "team",
     "teams", "offence", "offences", "offense", "offenses", "compare", "better", "summary",
     "done", "doing", "happened",
+    # broad-profile / comparison vocabulary (so these never leak as a typo team candidate)
+    "advanced", "profile", "performing", "performance", "summarise", "summarize",
+    "defense", "defenses", "defence", "defences",
     # special/exhibition team components: full phrases ("Team World") are matched by the
     # gazetteer and extracted whole; these block a BARE remnant ("World") from leaking as a team.
     "stars", "stripes", "world",

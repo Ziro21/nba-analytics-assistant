@@ -15,7 +15,7 @@ It **is**: a deterministic pipeline — rule parser → validator → tool regis
 formatter → structured result — exposed through a small CLI.
 
 It is **not**: a live-data service, a betting model, a machine-learning predictor, or an
-LLM-driven chatbot. It does not answer arbitrary basketball questions — only the six supported
+LLM-driven chatbot. It does not answer arbitrary basketball questions — only the seven supported
 analytical families below.
 
 ## Key features
@@ -24,7 +24,7 @@ analytical families below.
   no network, no randomness.
 - **Validation and canonicalisation boundary** — team names are resolved (e.g. `Warriors` →
   `Golden State Warriors`), ambiguous/unknown/special teams are rejected with clear messages.
-- **Registered analytical tools** — six pandas tools dispatched through a single registry.
+- **Registered analytical tools** — seven pandas tools dispatched through a single registry.
 - **Structured result contract** — every response is an `AssistantResult` (`status`, `message`,
   `data`, `errors`, `warnings`, `meta`), always JSON-serialisable.
 - **Deterministic formatter** — turns tool output into a user-facing message; computes nothing.
@@ -43,10 +43,17 @@ analytical families below.
 | **Top scoring teams** | `top_scoring_teams` | `Top 5 scoring teams` |
 | **Head-to-head** record | `head_to_head` | `Celtics vs Heat head to head` |
 | Team **efficiency** summary | `team_efficiency_summary` | `Boston Celtics efficiency last 10 games` |
+| Team **advanced profile** | `team_advanced_profile` | `How are the Warriors performing over the last 5 games?` |
 
 Teams can be referenced by nickname (`Warriors`), tri-code (`GSW`), full name
 (`Boston Celtics`), or unambiguous city (`Boston`). An optional `last N games` window is
 supported where it applies.
+
+**Simple vs broad:** a single-metric question keeps a simple answer (e.g. *"…averaged 114.4 points
+…"*). A broad performance question — *"How are the Warriors performing…"*, *"advanced profile"*, or
+*"summarise the Warriors over the last 10 games"* — returns a fuller **profile**: record, points
+scored and allowed, and pace-adjusted ratings (ORTG/DRTG/net rating). Location splits (home/away) are
+not supported and fail safely.
 
 ## Limitations (by design)
 
@@ -54,7 +61,7 @@ supported where it applies.
 - **No betting model** — it does not estimate or forecast betting markets.
 - **No prediction engine** — it reports historical facts from the dataset; it does not project.
 - **No LLM parser** — the parser is a deterministic rule engine; no LLM is enabled in this build.
-- **No arbitrary Q&A** — only the six families above are supported; anything else fails safely.
+- **No arbitrary Q&A** — only the seven families above are supported; anything else fails safely.
 - **No web app or service** — the only interface is the command line.
 - `season_id` values are treated as **opaque identifiers** and are not decoded into NBA season
   labels (e.g. there is no "2023-24" interpretation).
@@ -139,7 +146,7 @@ Test strategy and quality gates: [docs/testing_and_quality.md](docs/testing_and_
 ## Project status
 
 The implemented system includes: a deterministic rule parser, a validation/canonicalisation
-safety layer, a tool registry, six pandas analytical tools, structured result contracts, a
+safety layer, a tool registry, seven pandas analytical tools, structured result contracts, a
 deterministic formatter, the assistant orchestrator, a runtime bootstrap, a CLI demo, and a
 comprehensive regression/safety test suite. Each layer was implemented and independently
 reviewed phase by phase.

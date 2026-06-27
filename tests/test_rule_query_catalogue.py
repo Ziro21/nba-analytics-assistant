@@ -24,6 +24,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 REGISTERED_TOOLS = {
     "team_average_points", "average_points_allowed", "team_record",
     "top_scoring_teams", "head_to_head", "team_efficiency_summary",
+    "team_advanced_profile",
 }
 PARSER_FUNCTION_NAMES = ("parse_rule_query", "route_intent", "extract_slots", "normalise_query")
 
@@ -32,7 +33,7 @@ PARSER_FUNCTION_NAMES = ("parse_rule_query", "route_intent", "extract_slots", "n
 
 def test_supported_tool_names() -> None:
     assert set(SUPPORTED_TOOL_NAMES) == REGISTERED_TOOLS
-    assert len(SUPPORTED_TOOL_NAMES) == len(set(SUPPORTED_TOOL_NAMES)) == 6
+    assert len(SUPPORTED_TOOL_NAMES) == len(set(SUPPORTED_TOOL_NAMES)) == 7
 
 
 # --- Supported examples -----------------------------------------------------

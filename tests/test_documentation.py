@@ -46,7 +46,7 @@ def test_readme_contains_cli_and_test_commands() -> None:
 def test_readme_documents_supported_question_families() -> None:
     text = _text(README)
     for phrase in ("average points", "points allowed", "record",
-                   "top scoring teams", "head-to-head", "efficiency"):
+                   "top scoring teams", "head-to-head", "efficiency", "advanced profile"):
         assert phrase in text, f"README should mention {phrase!r}"
 
 
