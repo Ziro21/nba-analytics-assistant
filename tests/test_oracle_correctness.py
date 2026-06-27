@@ -54,13 +54,18 @@ def runtime():
 # --- Layer 1: clean-view derivations vs the raw CSV -------------------------
 
 def test_derivations_match_raw_csv(clean, raw) -> None:
-    # raw columns whose names do not collide with the clean view (clean renames points/ratings).
-    cols = ["game_id", "team_name", "team_points", "opponent_points", "ORTG", "DRTG"]
-    merged = clean.merge(raw[cols], on=["game_id", "team_name"])
+    # raw `possessions` is renamed to avoid a name collision with the clean column of the same name.
+    raw_cols = raw[["game_id", "team_name", "team_points", "opponent_points",
+                    "ORTG", "DRTG", "possessions"]].rename(columns={"possessions": "raw_possessions"})
+    merged = clean.merge(raw_cols, on=["game_id", "team_name"])
     assert len(merged) == len(clean)  # (game_id, team_name) is a unique key — no fan-out
     assert (merged["points_for"] == merged["team_points"]).all()
     assert (merged["points_against"] == merged["opponent_points"]).all()
     assert (merged["win_flag"] == (merged["team_points"] > merged["opponent_points"])).all()
+    # direct column pass-throughs (rename / carry-over): clean values equal the raw source values.
+    assert (merged["ortg"] == merged["ORTG"]).all()
+    assert (merged["drtg"] == merged["DRTG"]).all()
+    assert (merged["possessions"] == merged["raw_possessions"]).all()
     assert (merged["net_rating"] - (merged["ORTG"] - merged["DRTG"])).abs().max() < 1e-9
     # data-integrity invariant: plus_minus is exactly points scored minus points allowed
     assert (clean["plus_minus"] == (clean["points_for"] - clean["points_against"])).all()
@@ -86,6 +91,8 @@ def test_exhibition_flagging_and_date_ordering(clean) -> None:
 
 
 # --- Layer 2: tool outputs vs independent pandas aggregation -----------------
+# The registry ``execute(...)`` call is the SUBJECT-UNDER-TEST; the from-scratch pandas computation
+# beside it is the independent oracle. They must never share logic from ``src.tools``.
 
 def _oracle_slice(franchise, team, window, location):
     games = franchise[franchise["team_name"] == team]
@@ -125,6 +132,26 @@ def test_record_averages_and_profile_match_oracle(franchise, clean, team, window
     assert profile["average_ortg"] == pytest.approx(float(games["ortg"].mean()))
 
 
+@pytest.mark.parametrize("team", ["Golden State Warriors", "Boston Celtics", "Miami Heat"])
+@pytest.mark.parametrize("window", [None, 10])
+@pytest.mark.parametrize("location", [None, "home", "away"])
+def test_efficiency_summary_matches_oracle(franchise, clean, team, window, location) -> None:
+    # team_efficiency_summary is the only tool reporting average_possessions — checked directly here
+    # (not just via the advanced profile) so every one of its output fields has an independent oracle.
+    games = _oracle_slice(franchise, team, window, location)
+    args = {"team": team}
+    if window:
+        args["window"] = window
+    if location:
+        args["location"] = location
+    eff = DEFAULT_REGISTRY.execute("team_efficiency_summary", args, clean_df=clean)["result"]
+    assert eff["games_used"] == len(games)
+    assert eff["average_ortg"] == pytest.approx(float(games["ortg"].mean()))
+    assert eff["average_drtg"] == pytest.approx(float(games["drtg"].mean()))
+    assert eff["average_net_rating"] == pytest.approx(float(games["net_rating"].mean()))
+    assert eff["average_possessions"] == pytest.approx(float(games["possessions"].mean()))
+
+
 @pytest.mark.parametrize("n", [5, 10])
 def test_top_scoring_ranking_matches_oracle(franchise, clean, n) -> None:
     # independent ranking with the tool's documented tie-break (mean desc, team_name asc).
@@ -156,13 +183,18 @@ def test_head_to_head_counts_each_meeting_once(franchise, clean, team_a, team_b)
     assert len(mirror) == len(games)
 
 
-def test_compare_profiles_match_independent_single_team_profiles(franchise, clean) -> None:
-    team_a, team_b, window = "Golden State Warriors", "Boston Celtics", 10
-    result = DEFAULT_REGISTRY.execute(
-        "compare_team_profiles", {"team_a": team_a, "team_b": team_b, "window": window},
-        clean_df=clean)["result"]
+@pytest.mark.parametrize("team_a,team_b,window,location", [
+    ("Golden State Warriors", "Boston Celtics", 10, None),
+    ("Los Angeles Lakers", "New York Knicks", 10, "home"),
+])
+def test_compare_profiles_match_independent_single_team_profiles(
+        franchise, clean, team_a, team_b, window, location) -> None:
+    args = {"team_a": team_a, "team_b": team_b, "window": window}
+    if location:
+        args["location"] = location
+    result = DEFAULT_REGISTRY.execute("compare_team_profiles", args, clean_df=clean)["result"]
     for team, profile in ((team_a, result["team_a_profile"]), (team_b, result["team_b_profile"])):
-        games = _oracle_slice(franchise, team, window, None)
+        games = _oracle_slice(franchise, team, window, location)
         assert profile["games"] == len(games)
         assert profile["wins"] == int((games["points_for"] > games["points_against"]).sum())
         assert profile["average_net_rating"] == pytest.approx(float(games["net_rating"].mean()))
