@@ -72,7 +72,7 @@ def test_cli_version_exits_zero_and_prints_version(capsys) -> None:
     assert main(["--version"]) == 0
     out = capsys.readouterr().out
     assert "sporting-risk-nba-assistant" in out
-    assert __version__ in out  # e.g. 1.1.0-dev
+    assert __version__ in out  # e.g. 1.2.0
 
 
 def test_cli_version_does_not_build_runtime(monkeypatch, capsys) -> None:

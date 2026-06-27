@@ -10,7 +10,7 @@ registering each tool's `ToolSpec`; this package does not import tools to trigge
 
 from __future__ import annotations
 
-# Single source of truth for the package version. Post-v1.0.0 development pre-release.
-__version__ = "1.1.0-dev"
+# Single source of truth for the package version.
+__version__ = "1.2.0"
 
 __all__ = ["__version__"]

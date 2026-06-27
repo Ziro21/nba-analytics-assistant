@@ -17,7 +17,7 @@ are prioritised improvements for a future minor release. Each item is specific a
   retained and wired into both `top_scoring_teams` and its registry schema (one source of truth).
 - **S3 — Architecture explainability.** Validator priority model and parser fallback (safe-by-validator)
   documented in `docs/architecture.md`.
-- **S4 — CLI `--version`.** Prints `sporting-risk-nba-assistant 1.1.0-dev`, exit 0, no dataset load.
+- **S4 — CLI `--version`.** Prints `sporting-risk-nba-assistant 1.2.0`, exit 0, no dataset load.
 
 ## Must fix
 
