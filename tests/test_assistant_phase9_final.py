@@ -113,7 +113,7 @@ def test_phase9_public_api_surface_is_locked() -> None:
     assert AssistantResult.answer("ok").status == "answer"
     # no production orchestration shortcut leaked onto the assistant module
     assert not hasattr(assistant_module, "parse_validate_execute")
-    for module in ("src.llm_query_parser", "src.response_formatter_llm", "src.web",
+    for module in ("src.response_formatter_llm", "src.web",
                    "src.api", "src.server", "src.parse_validate_execute"):
         assert importlib.util.find_spec(module) is None
 
@@ -351,7 +351,7 @@ def test_phase9_final_assistant_source_has_no_data_loading_or_direct_tool_calls(
 # --- 12. out-of-scope module absence ----------------------------------------
 
 def test_phase9_final_no_out_of_scope_production_modules_exist() -> None:
-    for module in ("src.llm_query_parser", "src.response_formatter_llm", "src.web", "src.api",
+    for module in ("src.response_formatter_llm", "src.web", "src.api",
                    "src.database", "src.rag", "src.agent", "src.server",
                    "src.parse_validate_execute", "src.rule_parser_validation_integration"):
         assert importlib.util.find_spec(module) is None, f"{module} must not exist in Phase 9"

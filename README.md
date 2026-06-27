@@ -65,7 +65,10 @@ splits; such a query fails safely with a clear message.
 - **No live data** — the assistant reads a fixed bundled CSV (`data/nba_dataset.csv`), not a feed.
 - **No betting model** — it does not estimate or forecast betting markets.
 - **No prediction engine** — it reports historical facts from the dataset; it does not project.
-- **No LLM parser** — the parser is a deterministic rule engine; no LLM is enabled in this build.
+- **No LLM parser is enabled by default** — the default is a deterministic rule engine. An optional,
+  offline, disabled-by-default **LLM-ready query-interpretation** interface exists as a documented
+  extension point (no API key, no network, no SDK); it is gated by the same validator. See
+  [docs/llm_integration_design.md](docs/llm_integration_design.md).
 - **No arbitrary Q&A** — only the seven families above are supported; anything else fails safely.
 - **No web app or service** — the only interface is the command line.
 - `season_id` values are treated as **opaque identifiers** and are not decoded into NBA season

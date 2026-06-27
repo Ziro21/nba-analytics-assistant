@@ -502,7 +502,7 @@ def test_assistant_source_has_no_data_loading_or_direct_tool_logic() -> None:
 
 def test_no_future_llm_or_pipeline_modules_exist() -> None:
     for module in (
-        "src.llm_query_parser",
+        "src.response_formatter_llm",  # LLM response generation stays out of scope
         "src.parse_validate_execute",
         "src.api",
         "src.web",

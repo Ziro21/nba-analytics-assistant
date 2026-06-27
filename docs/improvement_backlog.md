@@ -128,6 +128,9 @@ Larger features that must be designed and validated separately and never mixed i
 v1.0.0 scope:
 
 ### F1 — Optional LLM parser strictly behind the same validator
+- **Status:** ✅ Done — `src/llm_query_parser.py` (interpretation only; reuses `RuleParseResult` /
+  `ParsedIntent(parser_mode="llm")`; runtime DI via `AssistantRuntime(parser=...)`; CLI `--parser`
+  fails closed; offline, fake-provider-tested, no SDK/key). See `docs/llm_integration_design.md`.
 - **Phase:** 8 (additive). **Reason:** broader natural-language coverage. **Approach:** an alternate
   front-end parser whose output passes through the **unchanged** Phase 7 validator (no LLM-computed
   statistics; LLM proposes structure only); fully mocked in tests, flag-gated, off by default.

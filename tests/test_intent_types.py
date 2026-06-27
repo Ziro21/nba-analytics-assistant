@@ -30,7 +30,6 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 # response_formatter (9B) and assistant (9C) now exist; these later-layer modules still must not.
 FORBIDDEN_MODULES = (
     "src.query_parser",
-    "src.llm_query_parser",
 )
 
 EXPECTED_CODES = {

@@ -179,7 +179,7 @@ def test_delivery_packaging_entry_point_is_consistent_if_present() -> None:
 # --- 7. scope guard: no out-of-scope production modules ---------------------
 
 def test_delivery_no_out_of_scope_production_modules_exist() -> None:
-    for module in ("src.llm_query_parser", "src.response_formatter_llm", "src.web", "src.api",
+    for module in ("src.response_formatter_llm", "src.web", "src.api",
                    "src.database", "src.rag", "src.agent", "src.server", "src.live_data",
                    "src.betting_model", "src.odds_model", "src.parse_validate_execute"):
         assert importlib.util.find_spec(module) is None, f"{module} must not exist"

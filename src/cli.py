@@ -32,6 +32,11 @@ EMPTY_QUERY_MESSAGE = (
     'Please provide a question, e.g. '
     '"How many points do the Warriors average over the last 5 games?"'
 )
+LLM_NOT_CONFIGURED_MESSAGE = (
+    "LLM query interpretation is not configured: no provider is bundled (this build is offline, "
+    "deterministic, and needs no API key). The default rule parser remains available with "
+    "--parser rule. See docs/llm_integration_design.md."
+)
 
 EXIT_OK = 0          # answer
 EXIT_CLARIFY = 1     # clarification_needed / unsupported
@@ -59,6 +64,11 @@ def _build_parser() -> argparse.ArgumentParser:
         "--version", action="version", version=f"{PROG} {__version__}",
         help="print the program version and exit (does not load the dataset)",
     )
+    parser.add_argument(
+        "--parser", choices=("rule", "llm"), default="rule",
+        help="query interpreter (default: rule). 'llm' is an offline extension point and fails "
+             "closed unless a provider is configured.",
+    )
     return parser
 
 
@@ -83,6 +93,13 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     query = " ".join(args.query).strip()
     if not query:
         print(EMPTY_QUERY_MESSAGE, file=sys.stderr)
+        return EXIT_ERROR
+
+    # The LLM interpreter is an offline extension point: no provider is bundled, so it fails closed
+    # here without importing it, loading the dataset, or touching the network. (It is exercised via
+    # dependency injection in code/tests; see docs/llm_integration_design.md.)
+    if args.parser == "llm":
+        print(LLM_NOT_CONFIGURED_MESSAGE, file=sys.stderr)
         return EXIT_ERROR
 
     try:

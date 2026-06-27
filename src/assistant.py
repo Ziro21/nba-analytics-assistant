@@ -7,7 +7,7 @@ validation context, use pandas, call analytical tools directly, or compute stati
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 
 from src.assistant_types import INTERNAL_ERROR, AssistantIssue, AssistantResult
 from src.intent_validator import validate_intent
@@ -55,12 +55,18 @@ def answer_query(
     clean_df: object,
     validation_context: object,
     registry: object,
+    parser: Callable[[str], object] | None = None,
 ) -> AssistantResult:
     """Answer one natural-language query using injected production dependencies.
 
     The caller owns data loading and context construction. This function coordinates the
     existing safe components and returns an ``AssistantResult`` for every normal and
     unexpected path.
+
+    ``parser`` is the query interpreter, defaulting to the deterministic rule parser. It may be
+    injected with an alternative parser (e.g. an LLM-ready interpreter) that returns the SAME
+    ``RuleParseResult`` contract; the validator and registry remain the only safety/execution gates,
+    so ``parser_mode`` stays metadata only.
     """
     if not isinstance(query, str):
         return _internal_error(INTERNAL_ERROR_MESSAGE, query=query)
@@ -71,8 +77,11 @@ def answer_query(
     ):
         return _internal_error(CONFIGURATION_ERROR_MESSAGE, query=query)
 
+    # Resolve at call time (not as a default argument) so the module-level rule parser stays the
+    # default and remains patchable; an injected parser overrides it.
+    active_parser = parser if parser is not None else parse_rule_query
     try:
-        parse_result = parse_rule_query(query)
+        parse_result = active_parser(query)
     except Exception:  # noqa: BLE001 - assistant boundary; fail closed for callers
         return _internal_error(INTERNAL_ERROR_MESSAGE, query=query)
 

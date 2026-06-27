@@ -52,7 +52,6 @@ SUCCESS_CALLS = (
 # assistant exists (Phase 9C); these later-layer systems still must not.
 NEXT_LAYER_MODULES = (
     "src.query_parser",
-    "src.llm_query_parser",
 )
 
 

@@ -93,6 +93,45 @@ def test_cli_version_flag_does_not_break_normal_query(monkeypatch) -> None:
     assert fake.queries == ["Warriors record"]
 
 
+# --- 11.1c --parser (optional LLM-ready interpreter; fails closed) ----------
+
+def test_cli_parser_rule_behaves_like_default(monkeypatch) -> None:
+    fake = _install(monkeypatch, FakeRuntime(status="answer", message="ok"))
+    assert main(["--parser", "rule", "Warriors record"]) == 0
+    assert fake.queries == ["Warriors record"]
+
+
+def test_cli_parser_llm_fails_closed_without_provider(monkeypatch, capsys) -> None:
+    built: list[int] = []
+    monkeypatch.setattr(runtime_module, "build_default_runtime",
+                        lambda: built.append(1) or FakeRuntime())
+    code = main(["--parser", "llm", "How have GSW been doing on the road?"])
+    out = capsys.readouterr()
+    assert code == 2                       # not configured -> fail closed
+    assert built == []                     # never bootstraps / loads the dataset
+    assert "not configured" in out.err.lower()
+    assert "Traceback" not in out.err
+
+
+def test_cli_parser_llm_json_mode_fails_closed_without_partial_json(monkeypatch, capsys) -> None:
+    monkeypatch.setattr(runtime_module, "build_default_runtime",
+                        lambda: (_ for _ in ()).throw(AssertionError("must not bootstrap")))
+    code = main(["--parser", "llm", "--json", "How have GSW been doing on the road?"])
+    out = capsys.readouterr()
+    assert code == 2                       # fails closed before any runtime/JSON work
+    assert out.out == ""                   # no partial / invalid JSON emitted to stdout
+    assert "not configured" in out.err.lower() and "Traceback" not in out.err
+
+
+def test_cli_parser_llm_error_message_is_stderr_only(monkeypatch, capsys) -> None:
+    monkeypatch.setattr(runtime_module, "build_default_runtime",
+                        lambda: (_ for _ in ()).throw(AssertionError("must not bootstrap")))
+    code = main(["--parser", "llm", "warriors record"])
+    out = capsys.readouterr()
+    assert code == 2 and out.out == ""     # the message is stderr-only; stdout stays empty
+    assert "not configured" in out.err.lower()
+
+
 # --- 11.2 successful human-readable output ----------------------------------
 
 def test_answer_human_readable(monkeypatch, capsys) -> None:

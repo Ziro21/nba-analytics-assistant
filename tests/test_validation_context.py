@@ -27,7 +27,7 @@ EXPECTED_TOOL_ORDER = (
 )
 DUMMY_NAMES = ("dummy_team_tool", "dummy_noarg_tool", "dummy_raising_tool")
 FORBIDDEN_MODULES = (
-    "src.query_parser", "src.llm_query_parser",
+    "src.query_parser",
 )
 
 
