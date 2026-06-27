@@ -79,8 +79,10 @@ kept for traceability._
 ## Nice to have
 
 ### N1 — Tune fuzzy unknown-team suggestions
-- **Phase:** 7. **Severity:** low. **Reason:** "Celics" suggests "Boston Celtics **and** New Orleans
-  Pelicans"; the second is noise. **Approach:** raise the difflib cutoff or rank/limit suggestions to
+- **Status:** ✅ Done in v1.1.0-B (score-margin filter: a candidate must clear the cutoff and fall
+  within `_FUZZY_MARGIN` of the best score, so a clearly-better typo match is offered alone).
+- **Phase:** 7. **Severity:** low. **Reason:** "Celics" suggested "Boston Celtics **and** New Orleans
+  Pelicans"; the second was noise. **Approach:** raise the difflib cutoff or rank/limit suggestions to
   the closest match. **Risk:** must not turn suggestions into auto-resolution (keep suggestion-only).
   **Test coverage:** assert the top suggestion is correct and noise is reduced; assert no
   auto-resolution.

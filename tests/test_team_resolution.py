@@ -157,6 +157,43 @@ def test_completely_unknown_team() -> None:
     assert res.status == TEAM_UNKNOWN
 
 
+# --- v1.1.0-B: tuned fuzzy suggestions (single clear match; suggestion-only) ----
+
+@pytest.mark.parametrize("typo,expected", [
+    ("Celics", "Boston Celtics"),          # was also noisily suggesting New Orleans Pelicans
+    ("Warrios", "Golden State Warriors"),
+    ("Milwakee", "Milwaukee Bucks"),
+    ("Clipperss", "Los Angeles Clippers"),
+], ids=["celics", "warrios", "milwakee", "clipperss"])
+def test_unknown_team_typo_suggests_best_single_match(typo, expected) -> None:
+    res = _resolve(typo)
+    assert res.status == TEAM_UNKNOWN
+    assert res.canonical_name is None            # never auto-resolved
+    assert res.suggestions == (expected,)        # exactly one, correct suggestion (noise dropped)
+
+
+def test_ambiguous_short_market_still_returns_ambiguous_team() -> None:
+    for market, options in [
+        ("LA", ("Los Angeles Lakers", "Los Angeles Clippers")),
+        ("Los Angeles", ("Los Angeles Lakers", "Los Angeles Clippers")),
+        ("NY", ("New York Knicks", "Brooklyn Nets")),
+        ("New York", ("New York Knicks", "Brooklyn Nets")),
+    ]:
+        res = _resolve(market)
+        assert res.status == TEAM_AMBIGUOUS, market
+        assert res.canonical_name is None                # never collapsed to one team
+        assert res.suggestions == options                # both options preserved
+
+
+def test_fuzzy_suggestions_do_not_auto_resolve_to_execution() -> None:
+    # Central safety invariant: a typo yields a suggestion but is NEVER a resolved team.
+    res = _resolve("Celics")
+    assert res.status == TEAM_UNKNOWN
+    assert res.status != TEAM_RESOLVED
+    assert res.canonical_name is None
+    assert "Boston Celtics" in res.suggestions
+
+
 # --- Special teams ----------------------------------------------------------
 
 @pytest.mark.parametrize("value", ["Team Stars", "Team Stripes", "Team World"])

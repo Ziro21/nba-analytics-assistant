@@ -63,13 +63,15 @@ The assistant explains why it cannot answer; it never guesses a number.
 
 ```bash
 python -m src.cli "Who is better?"
-# I can only answer supported NBA analytics questions.                                  (unsupported)
+# I can only answer supported NBA analytics questions, such as team averages, points
+# allowed, records, top scoring teams, head-to-head records, and efficiency summaries.  (unsupported)
 
 python -m src.cli "How many points do LA average?"
 # "LA" is ambiguous. Do you mean Los Angeles Lakers or Los Angeles Clippers?            (clarification_needed)
 
 python -m src.cli "How many points do Celics average?"
-# I could not find "Celics". Did you mean Boston Celtics or New Orleans Pelicans?       (clarification_needed)
+# I could not find "Celics". Did you mean Boston Celtics?                                (clarification_needed)
+# (a typo yields a single best suggestion — it is offered, never auto-applied)
 
 python -m src.cli "Celtics vs Celtics head to head"
 # A head-to-head query needs two different teams.                                       (clarification_needed)

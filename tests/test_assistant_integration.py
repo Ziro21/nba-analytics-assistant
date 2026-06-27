@@ -146,6 +146,28 @@ def test_real_supported_queries_return_answers(
     _json_safe(result)
 
 
+# --- v1.1.0-B: a tuned typo suggestion must NOT execute a tool --------------
+
+def test_typo_team_suggestion_does_not_execute_registry(assistant_dependencies) -> None:
+    clean, context, _ = assistant_dependencies
+    spy = SpyRegistry(_average_points_result())  # would return a GSW answer IF wrongly executed
+    result = answer_query(
+        "How many points do Celics average?",
+        clean_df=clean, validation_context=context, registry=spy,
+    )
+    # validation fails (unknown_team) BEFORE execution: the registry is never called.
+    assert spy.calls == []
+    assert result.status == ASSISTANT_STATUS_CLARIFICATION_NEEDED
+    assert UNKNOWN_TEAM in _codes(result)
+    # the metric may be identified, but nothing is computed and the registry is never called.
+    assert result.data is None
+    # the tuned suggestion is the single correct team, surfaced but never auto-applied.
+    suggestions = tuple(s for issue in result.errors for s in (issue.suggestions or ()))
+    assert "Boston Celtics" in suggestions
+    assert "New Orleans Pelicans" not in suggestions
+    _json_safe(result)
+
+
 # --- parse failure paths ----------------------------------------------------
 
 @pytest.mark.parametrize("query", [

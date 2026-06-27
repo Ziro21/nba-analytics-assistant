@@ -431,7 +431,9 @@ def format_parse_failure(
     errors = tuple(_assistant_issue_from_parse_error(error) for error in parse_result.errors)
     if parse_result.status == PARSE_STATUS_NO_PARSE:
         return AssistantResult.unsupported(
-            "I can only answer supported NBA analytics questions.",
+            "I can only answer supported NBA analytics questions, such as team averages, "
+            "points allowed, records, top scoring teams, head-to-head records, and "
+            "efficiency summaries.",
             errors,
             query=result_query,
             warnings=warnings,
@@ -439,7 +441,8 @@ def format_parse_failure(
 
     if parse_result.status == PARSE_STATUS_AMBIGUOUS:
         return AssistantResult.clarification_needed(
-            "I need a little more detail to answer that request.",
+            "That request could refer to more than one statistic. Please name the one you want, "
+            "such as average points, record, or head-to-head.",
             errors,
             query=result_query,
             warnings=warnings,

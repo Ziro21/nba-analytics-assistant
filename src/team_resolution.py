@@ -134,6 +134,35 @@ class TeamResolutionResult:
         }
 
 
+# Fuzzy-suggestion tuning (deterministic, std-lib only). A candidate must clear the absolute
+# CUTOFF and also fall within MARGIN of the best score, so a clearly-better match is offered alone
+# and noisy near-misses are dropped. These produce SUGGESTIONS ONLY — never auto-resolution.
+_FUZZY_CUTOFF = 0.6
+_FUZZY_MARGIN = 0.1
+
+
+def _fuzzy_suggestions(
+    norm: str, pool: dict[str, str], *, max_suggestions: int
+) -> tuple[str, ...]:
+    """Rank canonical teams by their best deterministic ``difflib`` similarity to ``norm`` and
+    keep only the strongest, near-tied candidates (within ``_FUZZY_MARGIN`` of the top score).
+
+    Returns suggestions only; the caller never auto-resolves them into an executed query.
+    """
+    best_by_canonical: dict[str, float] = {}
+    for key, canonical in pool.items():
+        ratio = difflib.SequenceMatcher(None, norm, key).ratio()
+        if ratio >= _FUZZY_CUTOFF and ratio > best_by_canonical.get(canonical, 0.0):
+            best_by_canonical[canonical] = ratio
+    if not best_by_canonical:
+        return ()
+    # Deterministic order: similarity score descending, then canonical name ascending.
+    ranked = sorted(best_by_canonical.items(), key=lambda item: (-item[1], item[0]))
+    top_score = ranked[0][1]
+    within_margin = [name for name, score in ranked if top_score - score <= _FUZZY_MARGIN]
+    return tuple(within_margin[:max_suggestions])
+
+
 def resolve_team_name(
     value: str,
     *,
@@ -185,17 +214,12 @@ def resolve_team_name(
             TEAM_AMBIGUOUS, value, None, candidates, f"The team input {value!r} is ambiguous."
         )
 
-    # 6: fuzzy suggestions only -> unknown.
+    # 6: fuzzy suggestions only -> unknown. SUGGESTIONS ONLY; never auto-resolved.
     pool: dict[str, str] = dict(canonical_by_norm)
     for key, canonical in alias_map.items():
         pool.setdefault(key, canonical)
-    matches = difflib.get_close_matches(norm, list(pool), n=max_suggestions, cutoff=0.6)
-    suggestions: list[str] = []
-    for match in matches:
-        canonical = pool[match]
-        if canonical not in suggestions:
-            suggestions.append(canonical)
+    suggestions = _fuzzy_suggestions(norm, pool, max_suggestions=max_suggestions)
     return TeamResolutionResult(
-        TEAM_UNKNOWN, value, None, tuple(suggestions[:max_suggestions]),
+        TEAM_UNKNOWN, value, None, suggestions,
         f"I could not find a team matching {value!r}.",
     )

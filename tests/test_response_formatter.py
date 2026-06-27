@@ -379,6 +379,35 @@ def test_format_parse_failure_ambiguous_becomes_clarification() -> None:
     assert result.errors[0].code == AMBIGUOUS_INTENT
 
 
+# --- v1.1.0-B: clearer no-parse / ambiguous-intent messages ----
+
+def test_no_parse_message_lists_supported_families() -> None:
+    parse_result = RuleParseResult.no_parse(
+        (ParseError(PARSE_UNSUPPORTED_QUERY, "Outside catalogue.", value="Who is better?"),),
+        raw_query="Who is better?",
+    )
+    result = format_parse_failure(parse_result)
+    message = result.message.lower()
+    assert result.status == ASSISTANT_STATUS_UNSUPPORTED
+    assert "supported nba analytics questions" in message
+    # names concrete families so the user learns what they CAN ask
+    for family in ("average", "record", "top scoring", "head-to-head", "efficiency"):
+        assert family in message, family
+    assert result.errors[0].code == UNSUPPORTED_QUERY            # structured error unchanged
+    json.dumps(result.to_dict())
+
+
+def test_ambiguous_intent_message_asks_for_a_specific_metric() -> None:
+    parse_result = RuleParseResult.ambiguous(
+        (ParseError(PARSE_AMBIGUOUS_INTENT, "Ambiguous.", value="Compare Lakers and Celtics"),),
+        raw_query="Compare Lakers and Celtics",
+    )
+    result = format_parse_failure(parse_result)
+    assert result.status == ASSISTANT_STATUS_CLARIFICATION_NEEDED
+    assert "statistic" in result.message.lower()                # actionable, not just "more detail"
+    assert result.errors[0].code == AMBIGUOUS_INTENT            # structured error unchanged
+
+
 @pytest.mark.parametrize("parse_code", [MISSING_TEAM, UNSUPPORTED_TIME_EXPRESSION])
 def test_format_parse_failure_incomplete_becomes_clarification(parse_code) -> None:
     parse_result = RuleParseResult.incomplete(
