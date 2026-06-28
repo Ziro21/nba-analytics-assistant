@@ -20,7 +20,6 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
-from src import __version__
 from src.assistant_types import (
     ASSISTANT_STATUS_ANSWER,
     ASSISTANT_STATUS_CLARIFICATION_NEEDED,
@@ -51,11 +50,6 @@ _PANELS = {
 
 COMPARE_TOOL = "compare_team_profiles"
 TOP_SCORING_TOOL = "top_scoring_teams"
-
-DATASET_FOOTER = (
-    "Static dataset mode — no live scores, odds, injuries, or betting recommendations."
-)
-
 
 def _num(value: object, decimals: int = 1) -> str:
     """Display a numeric cell (rounded for readability) — pure formatting, never a calculation."""
@@ -122,10 +116,6 @@ def _top_scoring_table(data: dict) -> Table:
     return table
 
 
-def _footer() -> Text:
-    return Text(f"{DATASET_FOOTER}  (assistant v{__version__})", style=STATUS_STYLES["muted"])
-
-
 def render_result(result: AssistantResult, *, console: Optional[Console] = None) -> None:
     """Render an ``AssistantResult`` to the terminal. View only — never mutates ``result``.
 
@@ -154,4 +144,3 @@ def render_result(result: AssistantResult, *, console: Optional[Console] = None)
 
     for warning in result.warnings:
         console.print(Text(f"note: {warning.message}", style=STATUS_STYLES["muted"]))
-    console.print(_footer())

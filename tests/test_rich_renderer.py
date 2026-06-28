@@ -100,6 +100,19 @@ def test_unsupported_renders_unsupported_panel() -> None:
     assert "UNSUPPORTED QUERY" in _capture(result)
 
 
+def test_unsupported_betting_query_still_refuses_without_footer() -> None:
+    issue = AssistantIssue("unsupported_query", "no betting advice")
+    result = AssistantResult.unsupported(
+        "I can only answer supported NBA analytics questions.",
+        (issue,),
+        query="Should I bet on Warriors or Celtics?",
+    )
+    text = _capture(result)
+    assert "UNSUPPORTED QUERY" in text
+    assert "supported NBA analytics" in text
+    assert "Static dataset" not in text
+
+
 def test_error_renders_error_panel() -> None:
     issue = AssistantIssue("internal_error", "boom")
     result = AssistantResult.error("Something went wrong.", (issue,), query="q")
@@ -125,10 +138,11 @@ def test_top_scoring_renders_table_with_ranks_and_teams() -> None:
 
 # --- footer, fallback, safety -----------------------------------------------
 
-def test_footer_present_and_descriptive() -> None:
+def test_static_dataset_footer_is_not_rendered_in_pretty_output() -> None:
     text = _capture(_simple_answer())
-    assert "Static dataset" in text
-    assert "no live scores" in text and "betting recommendations" in text
+    assert "Golden State Warriors averaged 114.4 points" in text
+    assert "Static dataset" not in text
+    assert "no live scores" not in text and "betting recommendations" not in text
 
 
 def test_falls_back_to_message_panel_on_unexpected_data() -> None:
@@ -163,7 +177,8 @@ def test_cli_pretty_end_to_end_renders_table(monkeypatch, capsys) -> None:
     out = capsys.readouterr().out
     assert code == 0
     assert "Golden State Warriors" in out and "Boston Celtics" in out
-    assert "Static dataset" in out and "+5.8" in out
+    assert "+5.8" in out
+    assert "Static dataset" not in out
 
 
 def test_renderer_imports_no_analytics_modules() -> None:

@@ -103,8 +103,8 @@ JSON output is deterministic (`sort_keys=True`) and always valid JSON.
 
 ## Optional Rich pretty mode
 
-`--pretty` renders the same `AssistantResult` in a polished terminal layout — a panel for messages, a
-table for `compare_team_profiles` and `top_scoring_teams`, and a static-dataset footer:
+`--pretty` renders the same `AssistantResult` in a polished terminal layout — a panel for messages,
+or a table for `compare_team_profiles` and `top_scoring_teams`:
 
 ```bash
 python -m src.cli --pretty "Compare Warriors and Celtics over the last 10 games."
@@ -118,7 +118,6 @@ python -m src.cli --pretty "Compare Warriors and Celtics over the last 10 games.
 # │ Boston Celtics had the stronger profile over this selected sample based on │
 # │ net rating.                                                                │
 # ╰───────────────────────────────────────────────────────────────────────────╯
-# Static dataset mode — no live scores, odds, injuries, or betting recommendations.
 ```
 
 `--pretty` is a **Rich terminal presentation layer only**: it does not change parsing, validation,
